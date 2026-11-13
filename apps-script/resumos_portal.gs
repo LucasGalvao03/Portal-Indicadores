@@ -15,6 +15,10 @@
  *  - sem registro = waybill que não aparece na planilha de expedição do DC
  *  - DC de cada DS vem da planilha "Banco de Dados / DC e DS"
  * OffLoading: pacotes por Data_Operacao e DC, nas planilhas de descarregamento e consolidação.
+ * Pontualidade de Transporte (igual ao PQ_Pontualidade do Resumo Semanal):
+ *  - rotas do dia = Train No com bipe válido (com Scan Time e waybill, não cancelado)
+ *  - Vehicle ID de cada rota → aba Rotas → saída prevista x real (1ª prevista de cada veículo)
+ *  - rota no prazo se a saída real <= prevista (tolerância 0 min); resultado gravado na planilha do PI2
  */
 
 const ABA_RESUMO = 'Resumo_Portal';
@@ -26,7 +30,16 @@ const OFFLOADING = {
   recebido: {id: '1ewr8GddOYFhgmA83vbOrFR80LDjgdc8rYEl7szzHJ74', colunaDC: 'Estacao_Descarregamento', rotulo: 'Recebido'},  // Operação_Descarregamento
   consolidado: {id: '1rwG38ONSQkhtTe9Qc24jnYjpAW-NWl530xK7Zc9Yyw8', colunaDC: 'Scan Station', rotulo: 'Consolidado'},       // Operacao_Consolidacao
 };
-const FUNCOES = ['atualizarNoScan', 'atualizarRecebido', 'atualizarConsolidado'];
+const PONTUALIDADE = {
+  destinoId: '1nRv-cFPh4bEf3fbzEDiJy4uVOu_dmYv5RaPOd962SIE', // grava o Resumo_Portal na planilha do PI2
+  dcs: [
+    {dc: 'DC-PI2', id: '1nRv-cFPh4bEf3fbzEDiJy4uVOu_dmYv5RaPOd962SIE', gidLeitura: 0, gidRotas: 2048792338},
+    {dc: 'DC-CE1', id: '1Y6Q5t7Tcd3D0TvCmsyyQmwgoq5Zp155i0IITKdvsF9s', gidLeitura: 0, gidRotas: 2031713853},
+    {dc: 'DC-PI3', id: '1XAdk1Pq-GpzUj10xdi-B4lpz_b1YoNccBMKeaBvsTh4', gidLeitura: 0, gidRotas: 94921590},
+  ],
+  toleranciaMin: 0,
+};
+const FUNCOES = ['atualizarNoScan', 'atualizarRecebido', 'atualizarConsolidado', 'atualizarPontualidade'];
 
 function configurar() {
   ScriptApp.getProjectTriggers()
@@ -118,4 +131,78 @@ function atualizarNoScan() {
   const linhas = [['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'],
     ...[...grupos.values()].sort((a, b) => (a[0] + a[1] + a[2]).localeCompare(b[0] + b[1] + b[2]))];
   gravar_(ss, linhas, 7);
+}
+
+// ---------- Pontualidade de Transporte ----------
+function atualizarPontualidade() {
+  const txt = (v) => String(v == null ? '' : v).trim();
+  // data e hora como número aaaammddhhmmss (para comparar e pegar o menor)
+  const hora = (v, fuso) => {
+    if (v instanceof Date) return Number(Utilities.formatDate(v, fuso, 'yyyyMMddHHmmss'));
+    const t = txt(v);
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) return Number(m[1] + m[2] + m[3] + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) return Number(m[3] + m[2].padStart(2, '0') + m[1].padStart(2, '0') + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
+    return null;
+  };
+  const somaMin = (n, min) => { // soma minutos a aaaammddhhmmss
+    if (!min) return n;
+    const s = String(n), d = new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12) + min, +s.slice(12, 14)));
+    return Number(Utilities.formatDate(d, 'UTC', 'yyyyMMddHHmmss'));
+  };
+  const cancelado = (v) => ['Y', 'YES', 'SIM', 'S', 'TRUE', '1'].includes(txt(v).toUpperCase());
+
+  const rotasDia = new Set();   // DC|data|rota
+  const veiculos = new Map();   // DC|data|rota|VID
+  const porVeiculo = new Map(); // VID → {prev, real}
+  for (const cfg of PONTUALIDADE.dcs) {
+    const ss = SpreadsheetApp.openById(cfg.id);
+    const fuso = ss.getSpreadsheetTimeZone();
+    const leitura = ss.getSheets().find((s) => s.getSheetId() === cfg.gidLeitura);
+    const datas = lerColuna_(leitura, 'Data'), wbs = lerColuna_(leitura, 'Waybill No.'), vids = lerColuna_(leitura, 'Vehicle ID');
+    const trens = lerColuna_(leitura, 'Train No'), scans = lerColuna_(leitura, 'Scan Time'), canc = lerColuna_(leitura, 'Is Cancel');
+    for (let i = 0; i < datas.length; i++) {
+      const scan = scans[i];
+      const data = paraData_(datas[i], fuso) || paraData_(scan instanceof Date ? scan : txt(scan).slice(0, 10), fuso);
+      if (!data) continue;
+      const rota = txt(trens[i]) || '(sem rota)';
+      const k = `${cfg.dc}|${data}|${rota}`;
+      if (txt(scan) && txt(wbs[i]) && !cancelado(canc[i])) rotasDia.add(k);
+      const vid = txt(vids[i]).toUpperCase();
+      if (vid) veiculos.set(`${k}|${vid}`, [k, vid]);
+    }
+    const abaRotas = ss.getSheets().find((s) => s.getSheetId() === cfg.gidRotas);
+    const ids = lerColuna_(abaRotas, 'Vehicle Id'), prevs = lerColuna_(abaRotas, 'Planned Departure Time'), reais = lerColuna_(abaRotas, 'Act Departure Time');
+    for (let i = 0; i < ids.length; i++) {
+      const vid = txt(ids[i]).toUpperCase();
+      if (!vid) continue;
+      const prev = hora(prevs[i], fuso), real = hora(reais[i], fuso);
+      const atual = porVeiculo.get(vid);
+      // fica a linha com a menor saída prevista do veículo
+      if (!atual || (prev != null && (atual.prev == null || prev < atual.prev))) porVeiculo.set(vid, {prev, real});
+    }
+  }
+
+  // fecha por rota: menor prevista e menor saída real entre os veículos da rota
+  const porRota = new Map();
+  for (const [k, vid] of veiculos.values()) {
+    const v = porVeiculo.get(vid);
+    if (!v) continue;
+    const r = porRota.get(k) || {prev: null, real: null};
+    if (v.prev != null && (r.prev == null || v.prev < r.prev)) r.prev = v.prev;
+    if (v.real != null && (r.real == null || v.real < r.real)) r.real = v.real;
+    porRota.set(k, r);
+  }
+  const grupos = new Map();
+  for (const [k, r] of porRota) {
+    if (!rotasDia.has(k) || r.prev == null || r.real == null) continue;
+    const [dc, data] = k.split('|');
+    const g = grupos.get(data + '|' + dc) || [data, dc, 0, 0, 0];
+    g[2] += 1;
+    if (r.real <= somaMin(r.prev, PONTUALIDADE.toleranciaMin)) g[3] += 1; else g[4] += 1;
+    grupos.set(data + '|' + dc, g);
+  }
+  const linhas = [['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], ...[...grupos.values()].sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]))];
+  gravar_(SpreadsheetApp.openById(PONTUALIDADE.destinoId), linhas, 7);
 }
