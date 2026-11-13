@@ -69,12 +69,39 @@
       PORTAL_ORIGEM.notracking = 'sheets';
     } catch (e) { console.warn('Sheets indisponível para No Tracking', e); }
   }
+  // --- Erro de Triagem ao vivo: erros (Resumo_Portal) ÷ recebidos (Taxas → Orders Loading), por dia e DC ---
+  if (F.erro_erros && F.erro_receb) {
+    try {
+      const [er, rc] = await Promise.all([lerCSV(F.erro_erros), lerCSV(F.erro_receb)]);
+      const erros = er.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), ds_recebeu: r.DS_Recebeu, ds_destino: r.DS_Correta, n: Number(r.Erros) || 0}));
+      const receb = rc.filter((r) => r.Data && /^DC-/.test((r.Station || '').trim())).map((r) => ({data: iso(r.Data), dc: r.Station.trim(), n: Number(String(r['Orders Loading'] || '').replace(/[.\s]/g, ''))})).filter((r) => r.n >= 0 && !Number.isNaN(r.n));
+      const ult = [...erros.map((r) => r.data), ...receb.map((r) => r.data)].sort().pop();
+      if (ult) {
+        const d0 = new Date(ult.slice(0, 8) + '01T00:00:00Z');
+        while (d0.getUTCDay() !== 2) d0.setUTCDate(d0.getUTCDate() + 1); // 1ª terça do mês
+        const ini = d0.toISOString().slice(0, 10);
+        const rows = (st.diario && st.diario.data) || [];
+        const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
+        const linha = (data, dc) => { let r = idx.get(data + '|' + dc); if (!r) { r = {data, dc, chave: data + '|' + dc}; rows.push(r); idx.set(r.chave, r); } return r; };
+        rows.forEach((r) => { r.erros = null; r.recebidos_erro = null; r.taxa_erro = null; });
+        for (const x of receb) { if (x.data < ini || x.data > ult) continue; const r = linha(x.data, x.dc); r.recebidos_erro = (r.recebidos_erro || 0) + x.n; if (r.erros == null) r.erros = 0; }
+        for (const x of erros) { if (x.data < ini || x.data > ult) continue; const r = linha(x.data, x.dc); r.erros = (r.erros || 0) + x.n; }
+        rows.forEach((r) => { r.taxa_erro = r.erros != null && r.recebidos_erro ? r.erros / r.recebidos_erro : null; });
+        rows.sort((a, b) => a.data.localeCompare(b.data));
+        st.diario = {status: 'ok', data: rows};
+        // lista do último dia com erro (só DSs, sem waybill)
+        const diaLista = erros.map((r) => r.data).sort().pop();
+        st.erro_lista = {status: 'ok', data: erros.filter((r) => r.data === diaLista).flatMap((r) => Array.from({length: r.n}, () => ({data: r.data, dc: r.dc, ds_recebeu: r.ds_recebeu, ds_destino: r.ds_destino})))};
+        PORTAL_ORIGEM.erro = 'sheets';
+      }
+    } catch (e) { console.warn('Sheets indisponível para Erro de Triagem', e); }
+  }
   dash.render();
 })();
 dash.draw('fonte-status', (p) => {
   const o = window.PORTAL_ORIGEM || {};
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
-  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets')].join(' · ') + '.';
+  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets')].join(' · ') + '.';
 });
 new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });
