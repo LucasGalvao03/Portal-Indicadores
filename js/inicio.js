@@ -96,12 +96,37 @@
       }
     } catch (e) { console.warn('Sheets indisponível para Erro de Triagem', e); }
   }
+  // --- No Scan ao vivo: Resumo_Portal gerado pelo script (recebidos e sem registro por dia, DC e DS) ---
+  if (F.noscan) {
+    try {
+      const ns = (await lerCSV(F.noscan)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), rec: Number(r.Recebidos) || 0, sem: Number(r.Sem_Registro) || 0}));
+      const ult = ns.map((r) => r.data).sort().pop();
+      if (ult) {
+        const d0 = new Date(ult.slice(0, 8) + '01T00:00:00Z');
+        while (d0.getUTCDay() !== 2) d0.setUTCDate(d0.getUTCDate() + 1); // 1ª terça do mês
+        const ini = d0.toISOString().slice(0, 10);
+        const rows = (st.diario && st.diario.data) || [];
+        const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
+        rows.forEach((r) => { r.recebidos_scan = null; r.sem_registro = null; r.taxa_noscan = null; });
+        for (const x of ns) {
+          if (x.data < ini || x.data > ult || !/^DC-/.test(x.dc)) continue;
+          let r = idx.get(x.data + '|' + x.dc);
+          if (!r) { r = {data: x.data, dc: x.dc, chave: x.data + '|' + x.dc}; rows.push(r); idx.set(r.chave, r); }
+          r.recebidos_scan = (r.recebidos_scan || 0) + x.rec; r.sem_registro = (r.sem_registro || 0) + x.sem;
+        }
+        rows.forEach((r) => { r.taxa_noscan = r.recebidos_scan ? r.sem_registro / r.recebidos_scan : null; });
+        rows.sort((a, b) => a.data.localeCompare(b.data));
+        st.diario = {status: 'ok', data: rows};
+        PORTAL_ORIGEM.noscan = 'sheets';
+      }
+    } catch (e) { console.warn('Sheets indisponível para No Scan', e); }
+  }
   dash.render();
 })();
 dash.draw('fonte-status', (p) => {
   const o = window.PORTAL_ORIGEM || {};
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
-  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets')].join(' · ') + '.';
+  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets')].join(' · ') + '.';
 });
 new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });
