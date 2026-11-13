@@ -12,6 +12,7 @@ Site com os indicadores dos DCs PI2, CE1 e PI3. Publicado no Netlify a partir de
 | Gráficos e tabelas de cada relatório | `js/secoes/*.js` |
 | Como os dados do Sheets são lidos | `js/inicio.js` |
 | Cálculos (acumulados, taxas) | `js/fontes-e-calculos.js` |
+| Regras do resumo semanal e do ranking (status, pontos) | `js/resumo-ranking.js` |
 | Números de novembro (usados enquanto a seção não está ao vivo) | `dados/novembro.js` |
 
 Não editar: `vendor/d3.min.js` (biblioteca dos gráficos).
@@ -27,7 +28,8 @@ Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula
 | No Tracking | ao vivo |
 | Erro de Triagem | ao vivo (erros + Taxas) |
 | No Scan | ao vivo (script `apps-script/resumos_portal.gs`) |
-| Demais seções | números de novembro |
+| Visão geral e Ranking | calculados no site com os indicadores acima (`js/resumo-ranking.js`) |
+| Pontualidade, Lost e Controle de Sacas | números de novembro |
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
 

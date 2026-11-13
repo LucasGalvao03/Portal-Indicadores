@@ -121,12 +121,14 @@
       }
     } catch (e) { console.warn('Sheets indisponível para No Scan', e); }
   }
+  // --- Resumo semanal e Ranking recalculados com os dados acima ---
+  try { window.PORTAL_RECALCULA(st, SNAP); } catch (e) { console.error('Falha ao recalcular resumo/ranking', e); }
   dash.render();
 })();
 dash.draw('fonte-status', (p) => {
   const o = window.PORTAL_ORIGEM || {};
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
-  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets')].join(' · ') + '.';
+  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números (Pontualidade ainda de novembro).' : '');
 });
 new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });
