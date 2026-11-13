@@ -39,8 +39,8 @@ function atualizarRecebido() { resumoOffLoading_(OFFLOADING.recebido); }
 function atualizarConsolidado() { resumoOffLoading_(OFFLOADING.consolidado); }
 
 // ---------- utilidades ----------
-function paraData_(v) {
-  if (v instanceof Date) return Utilities.formatDate(v, 'America/Fortaleza', 'yyyy-MM-dd');
+function paraData_(v, fuso) {
+  if (v instanceof Date) return Utilities.formatDate(v, fuso, 'yyyy-MM-dd'); // fuso da planilha, para a data não "virar"
   const t = String(v == null ? '' : v).trim();
   let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
@@ -71,9 +71,10 @@ function resumoOffLoading_(cfg) {
   const base = base_(ss);
   const datas = lerColuna_(base, 'Data_Operacao');
   const dcs = lerColuna_(base, cfg.colunaDC);
+  const fuso = ss.getSpreadsheetTimeZone();
   const grupos = new Map();
   for (let i = 0; i < datas.length; i++) {
-    const data = paraData_(datas[i]), dc = String(dcs[i]).trim();
+    const data = paraData_(datas[i], fuso), dc = String(dcs[i]).trim();
     if (!data || !dc) continue;
     const k = data + '|' + dc;
     grupos.set(k, (grupos.get(k) || 0) + 1);
@@ -99,11 +100,12 @@ function atualizarNoScan() {
   const rec = base_(ss);
   const tempo = lerColuna_(rec, 'Scan Time'), wbs = lerColuna_(rec, 'Waybill Number');
   const sts = lerColuna_(rec, 'Scan Station'), ufs = lerColuna_(rec, 'Scan State Name');
+  const fuso = ss.getSpreadsheetTimeZone();
 
   const grupos = new Map();
   for (let i = 0; i < wbs.length; i++) {
     const wb = norm(typeof wbs[i] === 'number' ? wbs[i].toFixed(0) : wbs[i]);
-    const st = String(sts[i]).trim(), uf = String(ufs[i]).trim(), data = paraData_(tempo[i]);
+    const st = String(sts[i]).trim(), uf = String(ufs[i]).trim(), data = paraData_(tempo[i], fuso);
     if (!wb || !data || st === 'DC-CE1' || st === 'DC-PI2' || uf === '' || uf === 'C2104008501') continue;
     const dc = mapa.get(st) || 'Não identificado';
     const k = `${data}|${dc}|${st}`;
