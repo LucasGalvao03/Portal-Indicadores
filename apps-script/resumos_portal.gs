@@ -1,10 +1,14 @@
 /**
- * No Scan · resumo para o Portal de Indicadores
+ * Resumos para o Portal de Indicadores (No Scan e OffLoading)
  *
- * Onde colar: planilha "Leitura_de_Recebimento" → Extensões → Apps Script.
- * Primeira vez: escolha a função "configurar" e clique em Executar (pede autorização uma vez).
- * Ela cria a aba Resumo_Portal e agenda a atualização automática a cada hora.
+ * Onde colar: planilha "Leitura_de_Recebimento" → Extensões → Apps Script (substitui o código anterior).
+ * Depois de colar: escolha a função "configurar" e clique em Executar.
+ * Ela atualiza os resumos e agenda a atualização automática a cada hora.
  *
+ * Por que script e não fórmula: as bases têm 200 mil+ linhas e a fórmula deixava a aba
+ * publicada lenta demais para o site ler. O script grava valores prontos.
+ *
+ * No Scan
  * Regra (igual ao Power Query do Excel):
  *  - recebidos = leituras na DS (tira DC-CE1/DC-PI2, Scan State Name vazio e "C2104008501")
  *  - sem registro = waybill que não aparece na planilha de expedição do DC
@@ -17,12 +21,51 @@ const NOSCAN = {
   abaResumo: 'Resumo_Portal',
 };
 
+// OffLoading: cada planilha conta pacotes por Data_Operacao e estação (DC)
+const OFFLOADING = [
+  {id: '1ewr8GddOYFhgmA83vbOrFR80LDjgdc8rYEl7szzHJ74', colunaDC: 'Estacao_Descarregamento', rotulo: 'Recebido'},  // Operação_Descarregamento
+  {id: '1rwG38ONSQkhtTe9Qc24jnYjpAW-NWl530xK7Zc9Yyw8', colunaDC: 'Scan Station', rotulo: 'Consolidado'},         // Operacao_Consolidacao
+];
+
 function configurar() {
-  atualizarNoScan();
+  const funcoes = ['atualizarNoScan', 'atualizarOffLoading'];
   ScriptApp.getProjectTriggers()
-    .filter((t) => t.getHandlerFunction() === 'atualizarNoScan')
+    .filter((t) => funcoes.includes(t.getHandlerFunction()))
     .forEach((t) => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('atualizarNoScan').timeBased().everyHours(1).create();
+  atualizarOffLoading();
+  atualizarNoScan();
+  funcoes.forEach((f) => ScriptApp.newTrigger(f).timeBased().everyHours(1).create());
+}
+
+function atualizarOffLoading() {
+  const paraData = (t) => {
+    t = String(t).trim();
+    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    return '';
+  };
+  for (const cfg of OFFLOADING) {
+    const ss = SpreadsheetApp.openById(cfg.id);
+    const base = ss.getSheets().find((s) => s.getName() !== NOSCAN.abaResumo);
+    const cab = base.getRange(1, 1, 1, base.getLastColumn()).getDisplayValues()[0];
+    const cData = cab.indexOf('Data_Operacao') + 1, cDC = cab.indexOf(cfg.colunaDC) + 1;
+    const n = Math.max(base.getLastRow() - 1, 1);
+    const datas = base.getRange(2, cData, n, 1).getDisplayValues();
+    const dcs = base.getRange(2, cDC, n, 1).getDisplayValues();
+    const grupos = new Map();
+    for (let i = 0; i < n; i++) {
+      const data = paraData(datas[i][0]), dc = String(dcs[i][0]).trim();
+      if (!data || !dc) continue;
+      const k = data + '|' + dc;
+      grupos.set(k, (grupos.get(k) || 0) + 1);
+    }
+    const linhas = [['Data', 'DC', cfg.rotulo], ...[...grupos.entries()].sort().map(([k, v]) => [...k.split('|'), v])];
+    const aba = ss.getSheetByName(NOSCAN.abaResumo) || ss.insertSheet(NOSCAN.abaResumo);
+    aba.clearContents();
+    aba.getRange(1, 1, linhas.length, 1).setNumberFormat('@');
+    aba.getRange(1, 1, linhas.length, 3).setValues(linhas);
+    aba.getRange(1, 5).setValue('Atualizado em ' + Utilities.formatDate(new Date(), 'America/Fortaleza', 'dd/MM/yyyy HH:mm'));
+  }
 }
 
 function atualizarNoScan() {

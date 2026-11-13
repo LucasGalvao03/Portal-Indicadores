@@ -22,11 +22,11 @@ Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula
 
 | Seção | Situação |
 |---|---|
-| OffLoading | ao vivo (descarregamento + consolidação) |
+| OffLoading | ao vivo (script `apps-script/resumos_portal.gs`) |
 | Eficiência HC | ao vivo |
 | No Tracking | ao vivo |
 | Erro de Triagem | ao vivo (erros + Taxas) |
-| No Scan | ao vivo depois de instalar o script `apps-script/no_scan.gs` |
+| No Scan | ao vivo (script `apps-script/resumos_portal.gs`) |
 | Demais seções | números de novembro |
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
@@ -39,4 +39,4 @@ Basta abrir o `index.html` no navegador (dois cliques).
 
 Alguns cruzamentos são grandes demais para fórmula. Para esses, um script roda no próprio Google Sheets a cada hora e grava o resumo na aba `Resumo_Portal`.
 
-- `no_scan.gs`: colar na planilha Leitura_de_Recebimento (Extensões → Apps Script) e executar `configurar` uma vez.
+- `resumos_portal.gs`: No Scan e OffLoading. Fica na planilha Leitura_de_Recebimento (Extensões → Apps Script); depois de colar, executar `configurar` uma vez.
