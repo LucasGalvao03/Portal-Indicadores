@@ -1,0 +1,34 @@
+# Portal de Indicadores · iMile Nordeste II
+
+Site com os indicadores dos DCs PI2, CE1 e PI3. Publicado no Netlify a partir deste repositório: cada mudança na branch `main` atualiza o site sozinha.
+
+## Onde mexer
+
+| Quero mudar… | Arquivo |
+|---|---|
+| Links do Google Sheets (Publicar na Web → CSV) | `js/config.js` |
+| Textos, títulos e a ordem das seções | `index.html` |
+| Cores, fontes e espaçamentos | `css/estilo.css` |
+| Gráficos e tabelas de cada relatório | `js/secoes/*.js` |
+| Como os dados do Sheets são lidos | `js/inicio.js` |
+| Cálculos (acumulados, taxas) | `js/fontes-e-calculos.js` |
+| Números de novembro (usados enquanto a seção não está ao vivo) | `dados/novembro.js` |
+
+Não editar: `vendor/d3.min.js` (biblioteca dos gráficos).
+
+## De onde vêm os dados
+
+Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula que resume os dados por dia e DC. Essa aba é publicada na web como CSV e o link vai em `js/config.js`. Quando a base é atualizada no Sheets, o site mostra o número novo em poucos minutos.
+
+| Seção | Situação |
+|---|---|
+| OffLoading | ao vivo (descarregamento + consolidação) |
+| Eficiência HC | ao vivo |
+| No Tracking | ao vivo |
+| Demais seções | números de novembro |
+
+No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
+
+## Testar no computador
+
+Basta abrir o `index.html` no navegador (dois cliques).
