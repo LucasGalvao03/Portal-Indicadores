@@ -153,13 +153,17 @@ function lerColuna_(aba, nome, exibido) {
 }
 const txt_ = (v) => String(v == null ? '' : v).trim();
 const CACHE_DATAS_ = new Map();
+// Data/hora de célula no fuso da planilha. Utilities.formatDate é lento, então converte uma vez por
+// HORA (fusos do Brasil são de horas inteiras) e reaproveita: com 260 mil leituras com segundos
+// diferentes, eram 260 mil chamadas e a tarefa passava de 6 minutos.
+function horaLocal_(v, fuso) { // Date → 'aaaaMMddHH' no fuso
+  const h = Math.floor(v.getTime() / 3600000), k = h + '|' + fuso;
+  let r = CACHE_DATAS_.get(k);
+  if (r === undefined) { r = Utilities.formatDate(new Date(h * 3600000), fuso, 'yyyyMMddHH'); CACHE_DATAS_.set(k, r); }
+  return r;
+}
 function paraData_(v, fuso, mesPrimeiro) { // → aaaa-mm-dd
-  if (v instanceof Date) {
-    const k = v.getTime() + '|' + fuso;
-    let r = CACHE_DATAS_.get(k);
-    if (r === undefined) { r = Utilities.formatDate(v, fuso, 'yyyy-MM-dd'); CACHE_DATAS_.set(k, r); }
-    return r;
-  }
+  if (v instanceof Date) { const h = horaLocal_(v, fuso); return `${h.slice(0, 4)}-${h.slice(4, 6)}-${h.slice(6, 8)}`; }
   const t = txt_(v);
   let m = t.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
@@ -319,7 +323,7 @@ function lost_() {
 // ---------- Pontualidade de Transporte e Controle de Sacas (mesma base de carregamento) ----------
 function carregamento_(dc) {
   const hora = (v, fuso) => { // aaaammddhhmmss, para comparar
-    if (v instanceof Date) return Number(Utilities.formatDate(v, fuso, 'yyyyMMddHHmmss'));
+    if (v instanceof Date) { const p = (n) => String(n).padStart(2, '0'); return Number(horaLocal_(v, fuso) + p(v.getUTCMinutes()) + p(v.getUTCSeconds())); }
     const t = txt_(v);
     let m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (m) return Number(m[1] + m[2] + m[3] + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
