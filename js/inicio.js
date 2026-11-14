@@ -26,6 +26,19 @@
     } catch (e) { console.error(id, e); st[id] = {status: 'error', data: []}; }
   }));
 
+  // --- OffLoading ao vivo também no diário (Visão geral, Ranking e Lost usam o diário) ---
+  if (PORTAL_ORIGEM.off_rec === 'sheets' && PORTAL_ORIGEM.off_con === 'sheets') {
+    const rows = (st.diario && st.diario.data) || [];
+    const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
+    rows.forEach((r) => { r.recebido_off = null; r.consolidado = null; r.taxa_consolidacao = null; });
+    const linhaD = (data, dc) => { let r = idx.get(data + '|' + dc); if (!r) { r = {data, dc, chave: data + '|' + dc}; rows.push(r); idx.set(r.chave, r); } return r; };
+    for (const x of st.off_rec.data || []) { if (/^DC-/.test(x.dc)) { const r = linhaD(x.data, x.dc); r.recebido_off = (r.recebido_off || 0) + x.recebido; if (r.consolidado == null) r.consolidado = 0; } }
+    for (const x of st.off_con.data || []) { if (/^DC-/.test(x.dc)) { const r = linhaD(x.data, x.dc); r.consolidado = (r.consolidado || 0) + x.consolidado; } }
+    rows.forEach((r) => { r.taxa_consolidacao = r.recebido_off ? r.consolidado / r.recebido_off : null; });
+    rows.sort((a, b) => a.data.localeCompare(b.data));
+    st.diario = {status: 'ok', data: rows};
+  }
+
   // --- datas do Sheets: 2026/11/1, 01/11/2026, 2026-11-01 ou número serial ---
   const iso = (v) => {
     const t = String(v || '').trim();
@@ -49,7 +62,7 @@
         const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
         rows.forEach((r) => { r.volume_hc = null; r.pessoas = null; r.produtividade = null; });
         for (const h of hc) {
-          if (h.data < ini || h.data > ult) continue;
+          if (h.data > ult) continue;
           let r = idx.get(h.data + '|' + h.dc);
           if (!r) { r = {data: h.data, dc: h.dc, chave: h.data + '|' + h.dc}; rows.push(r); idx.set(r.chave, r); }
           r.volume_hc = h.volume_hc; r.pessoas = h.pessoas; r.produtividade = h.pessoas ? h.volume_hc / h.pessoas : null;
@@ -84,8 +97,8 @@
         const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
         const linha = (data, dc) => { let r = idx.get(data + '|' + dc); if (!r) { r = {data, dc, chave: data + '|' + dc}; rows.push(r); idx.set(r.chave, r); } return r; };
         rows.forEach((r) => { r.erros = null; r.recebidos_erro = null; r.taxa_erro = null; });
-        for (const x of receb) { if (x.data < ini || x.data > ult) continue; const r = linha(x.data, x.dc); r.recebidos_erro = (r.recebidos_erro || 0) + x.n; if (r.erros == null) r.erros = 0; }
-        for (const x of erros) { if (x.data < ini || x.data > ult) continue; const r = linha(x.data, x.dc); r.erros = (r.erros || 0) + x.n; }
+        for (const x of receb) { if (x.data > ult) continue; const r = linha(x.data, x.dc); r.recebidos_erro = (r.recebidos_erro || 0) + x.n; if (r.erros == null) r.erros = 0; }
+        for (const x of erros) { if (x.data > ult) continue; const r = linha(x.data, x.dc); r.erros = (r.erros || 0) + x.n; }
         rows.forEach((r) => { r.taxa_erro = r.erros != null && r.recebidos_erro ? r.erros / r.recebidos_erro : null; });
         rows.sort((a, b) => a.data.localeCompare(b.data));
         st.diario = {status: 'ok', data: rows};
@@ -109,7 +122,7 @@
         const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
         rows.forEach((r) => { r.recebidos_scan = null; r.sem_registro = null; r.taxa_noscan = null; });
         for (const x of ns) {
-          if (x.data < ini || x.data > ult || !/^DC-/.test(x.dc)) continue;
+          if (x.data > ult || !/^DC-/.test(x.dc)) continue;
           let r = idx.get(x.data + '|' + x.dc);
           if (!r) { r = {data: x.data, dc: x.dc, chave: x.data + '|' + x.dc}; rows.push(r); idx.set(r.chave, r); }
           r.recebidos_scan = (r.recebidos_scan || 0) + x.rec; r.sem_registro = (r.sem_registro || 0) + x.sem;
@@ -134,7 +147,7 @@
         const idx = new Map(rows.map((r) => [r.data + '|' + r.dc, r]));
         rows.forEach((r) => { r.rotas = null; r.no_prazo = null; r.atrasadas = null; r.pct_atraso = null; });
         for (const x of pt) {
-          if (x.data < ini || x.data > ult) continue;
+          if (x.data > ult) continue;
           let r = idx.get(x.data + '|' + x.dc);
           if (!r) { r = {data: x.data, dc: x.dc, chave: x.data + '|' + x.dc}; rows.push(r); idx.set(r.chave, r); }
           r.rotas = x.rotas; r.no_prazo = x.no_prazo; r.atrasadas = x.atrasadas; r.pct_atraso = x.rotas ? x.atrasadas / x.rotas : null;
@@ -215,6 +228,13 @@
         PORTAL_ORIGEM.lost = 'sheets';
       }
     } catch (e) { console.warn('Sheets indisponível para Lost', e); }
+  }
+
+  // --- No Tracking: histórico diário (posição 4+ dias de cada dia, para as semanas passadas) ---
+  if (F.nt_hist) {
+    try {
+      st.nt_hist = {status: 'ok', data: (await lerCSV(F.nt_hist)).filter((r) => r.Data_Ref && r.DC).map((r) => ({data: iso(r.Data_Ref), dc: r.DC.trim(), faixa: (r.Faixa || '').trim(), qtd: Number(r.Qtd) || 0}))};
+    } catch (e) { console.warn('Sheets indisponível para histórico do No Tracking', e); }
   }
 
   // --- Resumo semanal e Ranking recalculados com os dados acima ---

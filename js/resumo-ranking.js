@@ -20,6 +20,7 @@ window.PORTAL_RECALCULA = (st, SNAP) => {
   };
   const diario = (st.diario && st.diario.data) || [];
   const nt = (st.notracking && st.notracking.data) || [];
+  const ntHist = (st.nt_hist && st.nt_hist.data) || [];
   const snapResumo = SNAP.tables.resumo || [];
   const snapRank = SNAP.tables.ranking || [];
 
@@ -30,11 +31,11 @@ window.PORTAL_RECALCULA = (st, SNAP) => {
   const terca = (d) => soma(d, -((D(d).getUTCDay() - 2 + 7) % 7));
   const br = (d, ano) => d.slice(8, 10) + '/' + d.slice(5, 7) + (ano ? '/' + d.slice(0, 4) : '');
 
-  const temDado = (r) => ['recebido_off', 'recebidos_scan', 'recebidos_erro', 'volume_hc', 'rotas'].some((k) => Number(r[k]) > 0);
+  const temDado = window.PORTAL_MES.temDado;
   const datas = diario.filter(temDado).map((r) => r.data).sort();
   if (!datas.length) return;
   const ultimo = datas[datas.length - 1];
-  const iniMes = datas[0];
+  const iniMes = window.PORTAL_MES.ini(ultimo);
   const semanaAtual = terca(ultimo);
 
   // ---------- resultado de um indicador num intervalo de dias ----------
@@ -103,19 +104,25 @@ window.PORTAL_RECALCULA = (st, SNAP) => {
 
   // ---------- resumo semanal: recalcula as semanas cobertas pelos dados do mês ----------
   const semanas = [];
-  for (let s = terca(iniMes); s <= semanaAtual; s = soma(s, 7)) semanas.push(s);
+  for (let s = terca(datas[0]); s <= semanaAtual; s = soma(s, 7)) semanas.push(s);
   const novos = [];
   const anterior = new Map(snapResumo.map((r) => [r.semana + '|' + r.indicador + '|' + r.dc, r]));
   for (const sem of semanas) {
-    const fim = soma(sem, 6), ini = sem < iniMes ? iniMes : sem;
+    const fim = soma(sem, 6), ini = sem;
     for (const [ind, [, formato, melhor, uni]] of Object.entries(IND)) {
       for (const dc of DCS) {
         const chave = `${sem}|${ind}|${dc}`;
         let res;
         if (ind === 'No Tracking') {
           // só existe a posição atual; semanas passadas mantêm o valor do Excel
-          res = sem === semanaAtual ? {v: ntAtual[dc], pior: null, dia: ntRef} : {v: (anterior.get(chave) || {}).resultado ?? null, pior: null, dia: null};
+          // semanas passadas: última posição guardada no histórico; senão, o valor do Excel
+          const hist = ntHist.filter((r) => r.dc === dc && r.data >= sem && r.data <= fim);
+          const ultDia = hist.map((r) => r.data).sort().pop();
+          const vHist = ultDia ? hist.filter((r) => r.data === ultDia && r.faixa !== '1. 2-3d').reduce((s, r) => s + r.qtd, 0) : null;
+          res = sem === semanaAtual ? {v: ntAtual[dc], pior: null, dia: ntRef} : {v: vHist ?? (anterior.get(chave) || {}).resultado ?? null, pior: null, dia: ultDia || null};
         } else res = calcula(ind, dc, ini, fim);
+        // sem dado ao vivo nessa semana: fica o valor do Excel, se houver
+        if (res.v == null && anterior.has(chave)) { const a = anterior.get(chave); res = {v: a.resultado, pior: a.pior_valor, dia: a.pior_dia}; }
         const {meta, desafio} = metaDe(ind, dc);
         const semAnt = soma(sem, -7);
         const ant = novos.find((x) => x.semana === semAnt && x.indicador === ind && x.dc === dc) || anterior.get(`${semAnt}|${ind}|${dc}`);

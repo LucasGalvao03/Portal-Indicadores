@@ -4,7 +4,7 @@
     name: dc, color: PT.cor(dc),
     pts: rows.filter((r) => r.dc === dc && r[campo] != null).map((r) => ({x: PT.parse(r.data), y: Number(r[campo]), extra: extra ? extra(r) : null})).sort((a, b) => a.x - b.x),
   }));
-  const pronto = (box) => { const g = dash.data('diario'); if (g.status !== 'ok') { box.replaceChildren(PT.el('p', 'pt-note', g.status === 'error' ? 'Falha ao carregar.' : '—')); return null; } return g.data; };
+  const pronto = (box) => { const g = dash.data('diario'); if (g.status !== 'ok') { box.replaceChildren(PT.el('p', 'pt-note', g.status === 'error' ? 'Falha ao carregar.' : '—')); return null; } return window.PORTAL_MES.filtra(g.data); };
   const tot = () => { const t = dash.data('diario_total'); return t.status === 'ok' ? t.data : null; };
   const dcCell = (r) => { const s = PT.el('span', 'pt-dc'); const i = PT.el('i'); i.style.background = PT.cor(r.dc); s.append(i, document.createTextNode(r.dc)); return s; };
   const pctCell = (f, fmt, meta, maior) => (r) => { const s = PT.el('span', r[f] == null ? '' : ((maior ? r[f] >= meta : r[f] <= meta) ? 'pt-good' : 'pt-bad'), PT.fmt(r[f], fmt)); return s; };

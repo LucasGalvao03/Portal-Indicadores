@@ -19,19 +19,16 @@ Não editar: `vendor/d3.min.js` (biblioteca dos gráficos).
 
 ## De onde vêm os dados
 
-Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula que resume os dados por dia e DC. Essa aba é publicada na web como CSV e o link vai em `js/config.js`. Quando a base é atualizada no Sheets, o site mostra o número novo em poucos minutos.
+Tudo passa pela planilha **Portal_Dados** (permanente, não muda de mês):
 
-| Seção | Situação |
-|---|---|
-| OffLoading | ao vivo (script `apps-script/resumos_portal.gs`) |
-| Eficiência HC | ao vivo |
-| No Tracking | ao vivo |
-| Erro de Triagem | ao vivo (erros + Taxas) |
-| No Scan | ao vivo (script `apps-script/resumos_portal.gs`) |
-| Visão geral e Ranking | calculados no site com os indicadores acima (`js/resumo-ranking.js`) |
-| Pontualidade de Transporte | ao vivo (script `apps-script/resumos_portal.gs`) |
-| Controle de Sacas | ao vivo (script `apps-script/resumos_portal.gs`, junto com a Pontualidade) |
-| Lost | ao vivo (fórmula na aba Resumo_Portal da planilha Lost / Damage) |
+1. As bases de cada mês ficam em planilhas próprias (descarregamento, consolidação, carregamento, No Tracking, Lost…).
+2. A aba **Config** da Portal_Dados tem o link da planilha de cada base no mês atual.
+3. O script `apps-script/portal_dados.gs` (instalado na Portal_Dados) lê essas bases a cada hora, calcula os resumos com as regras dos relatórios em Excel e grava nas abas da Portal_Dados, guardando o histórico dos meses anteriores.
+4. A Portal_Dados é publicada na web (CSV) e os links de cada aba ficam em `js/config.js`. O site lê essas abas sempre que a página abre.
+
+**Virada do mês:** criar as planilhas novas e colar os links delas na aba Config. Mais nada.
+
+O site mostra os gráficos e acumulados do mês operacional atual (da 1ª terça do mês até a véspera da 1ª terça do mês seguinte). A Visão geral e o Ranking (`js/resumo-ranking.js`) usam todo o histórico guardado; semanas sem dado guardado mantêm os números do Excel (`dados/novembro.js`).
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
 
@@ -39,8 +36,6 @@ No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo
 
 Basta abrir o `index.html` no navegador (dois cliques).
 
-## Scripts do Google (apps-script/)
+## Script do Google (apps-script/)
 
-Alguns cruzamentos são grandes demais para fórmula. Para esses, um script roda no próprio Google Sheets a cada hora e grava o resumo na aba `Resumo_Portal`.
-
-- `resumos_portal.gs`: No Scan, OffLoading, Pontualidade de Transporte e Controle de Sacas. Fica na planilha Leitura_de_Recebimento (Extensões → Apps Script); depois de colar, executar `configurar` uma vez.
+`portal_dados.gs`: fica na planilha Portal_Dados (Extensões → Apps Script). Depois de colar, executar `configurar` uma vez: cria a aba Config, agenda as atualizações a cada hora (cada parte em uma execução, por causa do limite de 6 minutos do Google) e faz uma primeira rodada nos minutos seguintes.

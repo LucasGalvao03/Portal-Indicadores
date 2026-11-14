@@ -1,3 +1,22 @@
+/* ---------- mês operacional: da 1ª terça do mês até a véspera da 1ª terça do mês seguinte ---------- */
+window.PORTAL_MES = (() => {
+  const S = (d) => d.toISOString().slice(0, 10);
+  const primeiraTerca = (ano, mes) => { const d = new Date(Date.UTC(ano, mes, 1)); while (d.getUTCDay() !== 2) d.setUTCDate(d.getUTCDate() + 1); return S(d); };
+  const ini = (ultimo) => { // início do mês operacional que contém a data
+    const a = +ultimo.slice(0, 4), m = +ultimo.slice(5, 7) - 1, t = primeiraTerca(a, m);
+    return ultimo >= t ? t : primeiraTerca(m === 0 ? a - 1 : a, m === 0 ? 11 : m - 1);
+  };
+  const temDado = (r) => ['recebido_off', 'recebidos_scan', 'recebidos_erro', 'volume_hc', 'rotas'].some((k) => Number(r[k]) > 0);
+  // linhas do mês operacional mais recente (os dados guardam o histórico de vários meses)
+  const filtra = (rows) => {
+    const datas = rows.filter((r) => r.data && (temDado(r) || r.recebido != null || r.consolidado != null)).map((r) => r.data).sort();
+    if (!datas.length) return rows;
+    const i = ini(datas[datas.length - 1]);
+    return rows.filter((r) => r.data >= i);
+  };
+  return {ini, filtra, temDado};
+})();
+
 /* ---------- loaders: cada fonte é uma tabela do arquivo portal_dados.json ---------- */
 dash.loader('resumo', {description: 'Pega a tabela "resumo" do arquivo.', fn: ({answer}) => ({data: answer.tables.resumo, columns: Object.keys(answer.tables.resumo[0] || {}), meta: answer.meta})});
 dash.loader('diario', {description: 'Pega a tabela "diario" do arquivo.', fn: ({answer}) => ({data: answer.tables.diario, columns: Object.keys(answer.tables.diario[0] || {}), meta: answer.meta})});
@@ -34,7 +53,7 @@ dash.calc('off_diario', {
     const m = new Map();
     for (const x of off_rec) { if (!DCS.includes(x.dc)) continue; const k = x.data + '|' + x.dc; m.set(k, {...(m.get(k) || {chave: k, data: x.data, dc: x.dc, recebido_off: 0, consolidado: 0}), recebido_off: x.recebido}); }
     for (const x of off_con) { if (!DCS.includes(x.dc)) continue; const k = x.data + '|' + x.dc; m.set(k, {...(m.get(k) || {chave: k, data: x.data, dc: x.dc, recebido_off: 0, consolidado: 0}), consolidado: x.consolidado}); }
-    return [...m.values()].map((r) => ({...r, taxa_consolidacao: r.recebido_off ? r.consolidado / r.recebido_off : null})).sort((a, b) => a.data.localeCompare(b.data));
+    return window.PORTAL_MES.filtra([...m.values()].map((r) => ({...r, taxa_consolidacao: r.recebido_off ? r.consolidado / r.recebido_off : null})).sort((a, b) => a.data.localeCompare(b.data)));
   },
 });
 dash.calc('off_total', {
@@ -54,7 +73,7 @@ dash.calc('diario_total', {
   title: 'Acumulado do mês por DC',
   description: 'Soma os dias do mês operacional por DC e calcula as taxas (consolidação, No Scan, erro de triagem, produtividade e % de rotas atrasadas).',
   fn: (diario) => ['DC-PI2', 'DC-CE1', 'DC-PI3'].map((dc) => {
-    const r = diario.filter((x) => x.dc === dc);
+    const r = window.PORTAL_MES.filtra(diario).filter((x) => x.dc === dc);
     const soma = (rows, f) => rows.reduce((s, x) => s + (Number(x[f]) || 0), 0);
     const off = r.filter((x) => x.recebido_off != null);
     const scan = r.filter((x) => x.recebidos_scan != null);
