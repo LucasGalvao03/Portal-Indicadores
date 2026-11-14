@@ -5,7 +5,8 @@
  * Depois de colar: escolha a função "configurar" e clique em Executar.
  * Ela só agenda as atualizações (leva segundos). Cada resumo roda sozinho a cada hora,
  * em execuções separadas, para não passar do limite de 6 minutos do Google.
- * Para atualizar na hora, execute a função do resumo que quiser (ex.: atualizarRecebido).
+ * Para atualizar na hora, execute a função do resumo que quiser (ex.: atualizarRecebido, atualizarPontualidadePI2).
+ * Use "Executar" (não "Depuração", que é bem mais lento).
  *
  * Por que script e não fórmula: as bases têm 200 mil+ linhas e a fórmula deixava a aba
  * publicada lenta demais para o site ler. O script grava valores prontos.
@@ -39,11 +40,11 @@ const PONTUALIDADE = {
   ],
   toleranciaMin: 0,
 };
-const FUNCOES = ['atualizarNoScan', 'atualizarRecebido', 'atualizarConsolidado', 'atualizarPontualidade'];
+const FUNCOES = ['atualizarNoScan', 'atualizarRecebido', 'atualizarConsolidado', 'atualizarPontualidadePI2', 'atualizarPontualidadeCE1', 'atualizarPontualidadePI3'];
 
 function configurar() {
   ScriptApp.getProjectTriggers()
-    .filter((t) => FUNCOES.includes(t.getHandlerFunction()) || t.getHandlerFunction() === 'atualizarOffLoading')
+    .filter((t) => FUNCOES.includes(t.getHandlerFunction()) || ['atualizarOffLoading', 'atualizarPontualidade'].includes(t.getHandlerFunction()))
     .forEach((t) => ScriptApp.deleteTrigger(t));
   FUNCOES.forEach((f) => ScriptApp.newTrigger(f).timeBased().everyHours(1).create());
 }
@@ -52,8 +53,14 @@ function atualizarRecebido() { resumoOffLoading_(OFFLOADING.recebido); }
 function atualizarConsolidado() { resumoOffLoading_(OFFLOADING.consolidado); }
 
 // ---------- utilidades ----------
+const CACHE_DATAS_ = new Map();
 function paraData_(v, fuso) {
-  if (v instanceof Date) return Utilities.formatDate(v, fuso, 'yyyy-MM-dd'); // fuso da planilha, para a data não "virar"
+  if (v instanceof Date) { // fuso da planilha, para a data não "virar"; guarda cada data já convertida (formatDate é lento)
+    const k = v.getTime() + '|' + fuso;
+    let r = CACHE_DATAS_.get(k);
+    if (r === undefined) { r = Utilities.formatDate(v, fuso, 'yyyy-MM-dd'); CACHE_DATAS_.set(k, r); }
+    return r;
+  }
   const t = String(v == null ? '' : v).trim();
   let m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
@@ -134,7 +141,13 @@ function atualizarNoScan() {
 }
 
 // ---------- Pontualidade de Transporte ----------
-function atualizarPontualidade() {
+function atualizarPontualidadePI2() { pontualidadeDC_('DC-PI2'); }
+function atualizarPontualidadeCE1() { pontualidadeDC_('DC-CE1'); }
+function atualizarPontualidadePI3() { pontualidadeDC_('DC-PI3'); }
+function atualizarPontualidade() { ['DC-PI2', 'DC-CE1', 'DC-PI3'].forEach(pontualidadeDC_); } // manual; pode passar de 6 min
+
+// Calcula um DC e troca só as linhas dele no Resumo_Portal
+function pontualidadeDC_(dcAlvo) {
   const txt = (v) => String(v == null ? '' : v).trim();
   // data e hora como número aaaammddhhmmss (para comparar e pegar o menor)
   const hora = (v, fuso) => {
@@ -156,7 +169,7 @@ function atualizarPontualidade() {
   const rotasDia = new Set();   // DC|data|rota
   const veiculos = new Map();   // DC|data|rota|VID
   const porVeiculo = new Map(); // VID → {prev, real}
-  for (const cfg of PONTUALIDADE.dcs) {
+  for (const cfg of PONTUALIDADE.dcs.filter((c) => c.dc === dcAlvo)) {
     const ss = SpreadsheetApp.openById(cfg.id);
     const fuso = ss.getSpreadsheetTimeZone();
     const leitura = ss.getSheets().find((s) => s.getSheetId() === cfg.gidLeitura);
@@ -203,6 +216,18 @@ function atualizarPontualidade() {
     if (r.real <= somaMin(r.prev, PONTUALIDADE.toleranciaMin)) g[3] += 1; else g[4] += 1;
     grupos.set(data + '|' + dc, g);
   }
-  const linhas = [['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], ...[...grupos.values()].sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]))];
-  gravar_(SpreadsheetApp.openById(PONTUALIDADE.destinoId), linhas, 7);
+  // junta com as linhas dos outros DCs já gravadas (trava para dois DCs não gravarem ao mesmo tempo)
+  const trava = LockService.getScriptLock();
+  trava.waitLock(120000);
+  try {
+    const ss = SpreadsheetApp.openById(PONTUALIDADE.destinoId);
+    const aba = ss.getSheetByName(ABA_RESUMO);
+    const outros = aba && aba.getLastRow() > 1
+      ? aba.getRange(2, 1, aba.getLastRow() - 1, 5).getDisplayValues().filter((r) => r[0] && r[1] && r[1] !== dcAlvo)
+      : [];
+    const todas = [...outros, ...grupos.values()].sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
+    gravar_(ss, [['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], ...todas], 7);
+  } finally {
+    trava.releaseLock();
+  }
 }
