@@ -8,4 +8,5 @@ window.PORTAL_FONTES = {
   erro_receb: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtMzdQ35YlZ-u93gpTg5iluOMhnfYUNdeYLWOBwhu4j7SvL46gJHa3MEwmCeZxMV2evLBrgFB35592/pub?gid=0&single=true&output=csv',  // planilha Taxas → aba Leitura → CSV
   noscan: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRS8h__hOPxmXb5-Bd42P_2DSc_CyEiMFrdPasVQvgnx6JNbouMSfB0e9EXoycynLQ9zWzpo8vSdjro/pub?gid=792435957&single=true&output=csv',      // planilha Leitura_de_Recebimento → aba Resumo_Portal (gerada pelo script apps-script/resumos_portal.gs) → CSV
   pontualidade: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMA_BZ4FDRnKqlQYZwDc3qBNTdQLDfXyCdwwYoChcoN9nPadMv0MYyoo6C_-joFRd5e3DNVYumcsiu/pub?gid=1474863310&single=true&output=csv', // planilha Leitura_de_Carregamento_DC-PI2 → aba Resumo_Portal (gerada pelo script) → CSV
+  sacas: '',        // planilha Leitura_de_Carregamento_DC-PI2 → aba Resumo_Sacas (gerada pelo script) → CSV
 };

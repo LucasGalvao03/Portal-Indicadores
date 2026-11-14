@@ -30,7 +30,8 @@ Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula
 | No Scan | ao vivo (script `apps-script/resumos_portal.gs`) |
 | Visão geral e Ranking | calculados no site com os indicadores acima (`js/resumo-ranking.js`) |
 | Pontualidade de Transporte | ao vivo (script `apps-script/resumos_portal.gs`) |
-| Lost e Controle de Sacas | números de novembro |
+| Controle de Sacas | ao vivo (script `apps-script/resumos_portal.gs`, junto com a Pontualidade) |
+| Lost | números de novembro |
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
 
@@ -42,4 +43,4 @@ Basta abrir o `index.html` no navegador (dois cliques).
 
 Alguns cruzamentos são grandes demais para fórmula. Para esses, um script roda no próprio Google Sheets a cada hora e grava o resumo na aba `Resumo_Portal`.
 
-- `resumos_portal.gs`: No Scan, OffLoading e Pontualidade de Transporte. Fica na planilha Leitura_de_Recebimento (Extensões → Apps Script); depois de colar, executar `configurar` uma vez.
+- `resumos_portal.gs`: No Scan, OffLoading, Pontualidade de Transporte e Controle de Sacas. Fica na planilha Leitura_de_Recebimento (Extensões → Apps Script); depois de colar, executar `configurar` uma vez.

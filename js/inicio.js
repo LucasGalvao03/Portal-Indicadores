@@ -146,6 +146,40 @@
     } catch (e) { console.warn('Sheets indisponível para Pontualidade', e); }
   }
 
+  // --- Controle de Sacas ao vivo: Resumo_Sacas gerado pelo script (enviadas x devolvidas por semana de envio, DC e DS) ---
+  if (F.sacas) {
+    try {
+      const sc = (await lerCSV(F.sacas)).filter((r) => r.Ini_Envio && r.DC).map((r) => ({ini: iso(r.Ini_Envio), dc: r.DC.trim(), ds: (r.DS || '').trim(), env: Number(r.Enviadas) || 0, dev: Number(r.Devolvidas) || 0}));
+      const primeira = sc.filter((r) => r.env > 0).map((r) => r.ini).sort()[0];
+      if (primeira) {
+        const D = (x) => new Date(x + 'T00:00:00Z');
+        const dm = (d) => d.toISOString().slice(8, 10) + '/' + d.toISOString().slice(5, 7);
+        const rotulo = (ini) => { // S45 (03/11 a 09/11), igual ao Excel
+          const ref = new Date(Date.UTC(D(ini).getUTCFullYear(), 0, 1)); ref.setUTCDate(ref.getUTCDate() - ((ref.getUTCDay() - 2 + 7) % 7));
+          const num = Math.floor((D(ini) - ref) / 864e5 / 7) + 1;
+          const fim = D(ini); fim.setUTCDate(fim.getUTCDate() + 6);
+          return `S${String(num).padStart(2, '0')} (${dm(D(ini))} a ${dm(fim)})`;
+        };
+        const vivos = sc.filter((r) => r.ini >= primeira && /^DC-/.test(r.dc));
+        const ds = vivos.map((r) => ({ini: r.ini, semana: rotulo(r.ini), dc: r.dc, ds: r.ds, enviadas: r.env, devolvidas: r.dev, saldo: r.env - r.dev, chave: `${r.ini}|${r.dc}|${r.ds}`}));
+        const sem = new Map();
+        for (const r of ds) {
+          const k = r.ini + '|' + r.dc;
+          const a = sem.get(k) || {ini: r.ini, semana: r.semana, dc: r.dc, enviadas: 0, devolvidas: 0, dss: 0, dss_sem_dev: 0};
+          a.enviadas += r.enviadas; a.devolvidas += r.devolvidas; a.dss += 1; a.dss_sem_dev += r.enviadas > 0 && !r.devolvidas ? 1 : 0;
+          sem.set(k, a);
+        }
+        const semanas = [...sem.values()].map((a) => ({...a, pct: a.enviadas ? a.devolvidas / a.enviadas : null, saldo: a.enviadas - a.devolvidas, chave: a.ini + '|' + a.dc}));
+        // semanas anteriores ficam com o histórico do Excel
+        const antigas = (st.sacas_semana && st.sacas_semana.data || []).filter((r) => r.ini < primeira);
+        const antigasDS = (st.sacas_ds && st.sacas_ds.data || []).filter((r) => r.ini < primeira);
+        st.sacas_semana = {status: 'ok', data: [...semanas, ...antigas].sort((a, b) => b.ini.localeCompare(a.ini) || a.dc.localeCompare(b.dc))};
+        st.sacas_ds = {status: 'ok', data: [...ds, ...antigasDS]};
+        PORTAL_ORIGEM.sacas = 'sheets';
+      }
+    } catch (e) { console.warn('Sheets indisponível para Controle de Sacas', e); }
+  }
+
   // --- Resumo semanal e Ranking recalculados com os dados acima ---
   try { window.PORTAL_RECALCULA(st, SNAP); } catch (e) { console.error('Falha ao recalcular resumo/ranking', e); }
   dash.render();
@@ -153,7 +187,7 @@
 dash.draw('fonte-status', (p) => {
   const o = window.PORTAL_ORIGEM || {};
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
-  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets'), item('Pontualidade', o.pontualidade === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números.' : '');
+  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets'), item('Pontualidade', o.pontualidade === 'sheets'), item('Controle de Sacas', o.sacas === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números.' : '');
 });
 new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });

@@ -16,6 +16,10 @@
  *  - sem registro = waybill que não aparece na planilha de expedição do DC
  *  - DC de cada DS vem da planilha "Banco de Dados / DC e DS"
  * OffLoading: pacotes por Data_Operacao e DC, nas planilhas de descarregamento e consolidação.
+ * Controle de Sacas (junto com a Pontualidade, que já lê a mesma base de carregamento):
+ *  - enviadas = sacas distintas (Scan No. diferente do pacote) por semana de envio, DC e DS
+ *  - devolvidas = formulário; lançamento da semana N conta para o envio da semana N-1
+ *  - grava as abas Sacas_Enviadas e Resumo_Sacas na planilha do PI2
  * Pontualidade de Transporte (igual ao PQ_Pontualidade do Resumo Semanal):
  *  - rotas do dia = Train No com bipe válido (com Scan Time e waybill, não cancelado)
  *  - Vehicle ID de cada rota → aba Rotas → saída prevista x real (1ª prevista de cada veículo)
@@ -169,19 +173,29 @@ function pontualidadeDC_(dcAlvo) {
   const rotasDia = new Set();   // DC|data|rota
   const veiculos = new Map();   // DC|data|rota|VID
   const porVeiculo = new Map(); // VID → {prev, real}
+  const enviadas = new Map();   // semana|chave DS → {nomes, sacas}
   for (const cfg of PONTUALIDADE.dcs.filter((c) => c.dc === dcAlvo)) {
     const ss = SpreadsheetApp.openById(cfg.id);
     const fuso = ss.getSpreadsheetTimeZone();
     const leitura = ss.getSheets().find((s) => s.getSheetId() === cfg.gidLeitura);
     const datas = lerColuna_(leitura, 'Data'), wbs = lerColuna_(leitura, 'Waybill No.'), vids = lerColuna_(leitura, 'Vehicle ID');
     const trens = lerColuna_(leitura, 'Train No'), scans = lerColuna_(leitura, 'Scan Time'), canc = lerColuna_(leitura, 'Is Cancel');
+    const sacasCol = lerColuna_(leitura, 'Scan No.'), destinos = lerColuna_(leitura, 'Destination Statio');
     for (let i = 0; i < datas.length; i++) {
       const scan = scans[i];
       const data = paraData_(datas[i], fuso) || paraData_(scan instanceof Date ? scan : txt(scan).slice(0, 10), fuso);
       if (!data) continue;
       const rota = txt(trens[i]) || '(sem rota)';
       const k = `${cfg.dc}|${data}|${rota}`;
-      if (txt(scan) && txt(wbs[i]) && !cancelado(canc[i])) rotasDia.add(k);
+      const valido = txt(scan) && txt(wbs[i]) && !cancelado(canc[i]);
+      if (valido) rotasDia.add(k);
+      // Controle de Sacas: saca = Scan No. diferente do pacote, só destinos DS
+      const saca = txt(sacasCol[i]), ds = txt(destinos[i]) || '(sem DS)';
+      if (valido && saca && saca !== txt(wbs[i]) && !/^(DC-|CDC|RDC)/i.test(ds)) {
+        const ch = `${terca_(data)}|${chaveDS_(ds)}`;
+        const e = enviadas.get(ch) || {nomes: new Set(), sacas: new Set()};
+        e.nomes.add(ds); e.sacas.add(saca); enviadas.set(ch, e);
+      }
       const vid = txt(vids[i]).toUpperCase();
       if (vid) veiculos.set(`${k}|${vid}`, [k, vid]);
     }
@@ -227,7 +241,62 @@ function pontualidadeDC_(dcAlvo) {
       : [];
     const todas = [...outros, ...grupos.values()].sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
     gravar_(ss, [['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], ...todas], 7);
+
+    // sacas enviadas deste DC (aba Sacas_Enviadas) e o cruzamento com as devolvidas (aba Resumo_Sacas)
+    const env = [...enviadas.entries()].map(([k, e]) => { const [ini, chave] = k.split('|'); return [ini, dcAlvo, chave, [...e.nomes].sort()[0], e.sacas.size]; });
+    let abaEnv = ss.getSheetByName('Sacas_Enviadas') || ss.insertSheet('Sacas_Enviadas');
+    const outrasEnv = abaEnv.getLastRow() > 1 ? abaEnv.getRange(2, 1, abaEnv.getLastRow() - 1, 5).getDisplayValues().filter((r) => r[0] && r[1] !== dcAlvo) : [];
+    abaEnv.clearContents();
+    const linhasEnv = [['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], ...outrasEnv, ...env];
+    abaEnv.getRange(1, 1, linhasEnv.length, 1).setNumberFormat('@');
+    abaEnv.getRange(1, 1, linhasEnv.length, 5).setValues(linhasEnv);
+    resumoSacas_(ss, linhasEnv.slice(1));
   } finally {
     trava.releaseLock();
   }
+}
+
+// ---------- Controle de Sacas ----------
+const SACAS = {formularioId: '1T3BX9CLfusmL-8MbUXYQNI7BCxjnpiDKEa6Sk2rh248'}; // formulário de sacas devolvidas
+
+function terca_(iso) { // terça-feira que abre a semana operacional de uma data aaaa-mm-dd
+  const d = new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)));
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - 2 + 7) % 7));
+  return d.toISOString().slice(0, 10);
+}
+function chaveDS_(ds) { // "ds  cua" → "CUA" (igual ao fxChaveDS do Excel)
+  const l = String(ds || '').toUpperCase().trim().split(' ').filter((x) => x).join(' ');
+  const s = /^DS[ \-_]/.test(l) ? l.slice(3).trim() : l;
+  return s || '(SEM DS)';
+}
+function dcPadrao_(dc) { // "pi2", "DC PI2" → "DC-PI2"
+  const u = String(dc || '').trim().toUpperCase().replace(/[ _]/g, '');
+  return !u ? '(sem DC)' : u.startsWith('DC-') ? u : u.startsWith('DC') ? 'DC-' + u.slice(2) : 'DC-' + u;
+}
+
+// Enviadas x devolvidas por semana de envio, DC e DS (devolução lançada na semana N = envio da semana N-1)
+function resumoSacas_(ss, linhasEnv) {
+  const form = SpreadsheetApp.openById(SACAS.formularioId);
+  const fuso = form.getSpreadsheetTimeZone();
+  const dados = base_(form).getDataRange().getValues();
+  const cab = dados[0].map((x) => String(x).trim());
+  const cData = cab.indexOf('Data do Preenchimento'), cDC = cab.indexOf('DC'), cQtd = cab.indexOf('Quantidade de Sacas'), cDS = cab.indexOf('DS');
+  const mapa = new Map();
+  const linha = (ini, dc, chave) => { const k = `${ini}|${dc}|${chave}`; if (!mapa.has(k)) mapa.set(k, {ini, dc, ds: '', env: 0, dev: 0}); return mapa.get(k); };
+  for (const [ini, dc, chave, ds, n] of linhasEnv) { const r = linha(ini, dc, chave); r.ds = r.ds || ds; r.env += Number(n) || 0; }
+  for (const r of dados.slice(1)) {
+    const data = paraData_(r[cData], fuso);
+    if (!data) continue;
+    const d = new Date(terca_(data) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 7);
+    const ds = String(r[cDS] || '').trim() || '(sem DS)';
+    const x = linha(d.toISOString().slice(0, 10), dcPadrao_(r[cDC]), chaveDS_(ds));
+    x.ds = x.ds || ds; x.dev += Number(r[cQtd]) || 0;
+  }
+  const linhas = [['Ini_Envio', 'DC', 'DS', 'Enviadas', 'Devolvidas'],
+    ...[...mapa.values()].sort((a, b) => (b.ini + a.dc + a.ds).localeCompare(a.ini + b.dc + b.ds)).map((r) => [r.ini, r.dc, r.ds, r.env, r.dev])];
+  const aba = ss.getSheetByName('Resumo_Sacas') || ss.insertSheet('Resumo_Sacas');
+  aba.clearContents();
+  aba.getRange(1, 1, linhas.length, 1).setNumberFormat('@');
+  aba.getRange(1, 1, linhas.length, 5).setValues(linhas);
+  aba.getRange(1, 7).setValue('Atualizado em ' + Utilities.formatDate(new Date(), 'America/Fortaleza', 'dd/MM/yyyy HH:mm'));
 }
