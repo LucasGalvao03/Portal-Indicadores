@@ -180,6 +180,43 @@
     } catch (e) { console.warn('Sheets indisponível para Controle de Sacas', e); }
   }
 
+  // --- Lost ao vivo: Resumo_Portal da planilha Lost/Damage (pacotes e valor por dia, DC, motivo e último scan) ---
+  if (F.lost) {
+    try {
+      const num = (v) => Number(String(v || '0').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0;
+      const lo = (await lerCSV(F.lost)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), motivo: (r.Motivo || '').trim() || '(sem motivo)', scan: (r.Ultimo_Scan || '').trim() || '(sem scan)', n: num(r.Lost), valor: num(r.Valor)}));
+      const fim = lo.map((r) => r.data).sort().pop();
+      if (fim) {
+        const ini = fim.slice(0, 8) + '01';
+        const noMes = lo.filter((r) => r.data >= ini && r.data <= fim);
+        const D = (x) => new Date(x + 'T00:00:00Z');
+        const S = (d) => d.toISOString().slice(0, 10);
+        const terca = (x) => { const d = D(x); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - 2 + 7) % 7)); return S(d); };
+        const somaDias = (x, n) => { const d = D(x); d.setUTCDate(d.getUTCDate() + n); return S(d); };
+        const semAtual = terca(fim), semAnt = somaDias(semAtual, -7);
+        const recebido = {};
+        ((st.diario && st.diario.data) || []).forEach((r) => { if (r.data >= ini && r.data <= fim && r.recebido_off != null) recebido[r.dc] = (recebido[r.dc] || 0) + Number(r.recebido_off); });
+        const soma = (rows, f) => rows.reduce((s, r) => s + r[f], 0);
+        st.lost_dc = {status: 'ok', data: ['DC-PI2', 'DC-PI3', 'DC-CE1'].map((dc) => {
+          const m = noMes.filter((r) => r.dc === dc), lost = soma(m, 'n'), rec = recebido[dc] || 0;
+          const ult = lo.filter((r) => r.dc === dc && r.data >= semAnt && r.data < semAtual);
+          return {dc, periodo_ini: ini, periodo_fim: fim, lost, recebido: rec, valor: soma(m, 'valor'), taxa: rec ? lost / rec : null, ultima_semana: soma(ult, 'n')};
+        })};
+        const semanal = [];
+        for (let k = 7; k >= 0; k--) {
+          const s0 = somaDias(semAtual, -7 * k), rot = s0.slice(8, 10) + '/' + s0.slice(5, 7), parcial = k === 0 && fim < somaDias(s0, 6) ? 1 : 0;
+          for (const dc of ['DC-PI2', 'DC-PI3', 'DC-CE1']) semanal.push({semana: rot, parcial, dc, lost: soma(lo.filter((r) => r.dc === dc && r.data >= s0 && r.data <= somaDias(s0, 6)), 'n'), chave: rot + '|' + dc});
+        }
+        st.lost_semanal = {status: 'ok', data: semanal};
+        const total = soma(noMes, 'n');
+        const agrupa = (campo, nome) => [...noMes.reduce((m, r) => m.set(r[campo], (m.get(r[campo]) || 0) + r.n), new Map())].map(([k, q]) => ({[nome]: k, qtd: q, pct: total ? q / total : 0})).sort((a, b) => b.qtd - a.qtd);
+        st.lost_motivos = {status: 'ok', data: agrupa('motivo', 'motivo')};
+        st.lost_scan = {status: 'ok', data: agrupa('scan', 'scan')};
+        PORTAL_ORIGEM.lost = 'sheets';
+      }
+    } catch (e) { console.warn('Sheets indisponível para Lost', e); }
+  }
+
   // --- Resumo semanal e Ranking recalculados com os dados acima ---
   try { window.PORTAL_RECALCULA(st, SNAP); } catch (e) { console.error('Falha ao recalcular resumo/ranking', e); }
   dash.render();
@@ -187,7 +224,7 @@
 dash.draw('fonte-status', (p) => {
   const o = window.PORTAL_ORIGEM || {};
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
-  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets'), item('Pontualidade', o.pontualidade === 'sheets'), item('Controle de Sacas', o.sacas === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números.' : '');
+  p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets'), item('Pontualidade', o.pontualidade === 'sheets'), item('Controle de Sacas', o.sacas === 'sheets'), item('Lost', o.lost === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números.' : '');
 });
 new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });

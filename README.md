@@ -31,7 +31,7 @@ Cada planilha-base no Google Sheets tem uma aba `Resumo_Portal` com uma fórmula
 | Visão geral e Ranking | calculados no site com os indicadores acima (`js/resumo-ranking.js`) |
 | Pontualidade de Transporte | ao vivo (script `apps-script/resumos_portal.gs`) |
 | Controle de Sacas | ao vivo (script `apps-script/resumos_portal.gs`, junto com a Pontualidade) |
-| Lost | números de novembro |
+| Lost | ao vivo (fórmula na aba Resumo_Portal da planilha Lost / Damage) |
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
 
