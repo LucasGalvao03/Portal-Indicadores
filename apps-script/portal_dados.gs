@@ -121,6 +121,9 @@ function abrirTodas_(base) {
   return ids.map((id) => SpreadsheetApp.openById(id));
 }
 /**
+ * Colunas de data/hora vão em "exibidas": lidas como texto (getDisplayValues). Ler como valor cria um
+ * objeto Date por linha, o que é muito lento com 200 mil+ linhas e estourava os 6 minutos.
+ *
  * Lê colunas de uma base juntando todas as partes listadas na Config (planilha principal + extensões).
  * Em cada parte usa a primeira aba que tem todas as colunas pedidas. Datas usam o fuso da primeira parte.
  */
@@ -215,7 +218,7 @@ function mesclar_(nomeAba, cabecalho, novas, opcoes) {
 
 // ---------- OffLoading ----------
 function offLoading_(base, colunaDC, abaDestino, rotulo) {
-  const b = lerBase_(base, ['Data_Operacao', colunaDC]), fuso = b.fuso;
+  const b = lerBase_(base, ['Data_Operacao', colunaDC], ['Data_Operacao']), fuso = b.fuso;
   const datas = b['Data_Operacao'], dcs = b[colunaDC];
   const g = new Map();
   for (let i = 0; i < datas.length; i++) {
@@ -233,7 +236,7 @@ function atualizarNoScan() {
   const bm = lerBase_('Mapa_DS_DC', ['DS', 'DC']);
   bm['DS'].forEach((x, i) => { const ds = txt_(x); if (ds.startsWith('DS ') && !mapa.has(ds)) mapa.set(ds, txt_(bm['DC'][i])); });
 
-  const br = lerBase_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name']), fuso = br.fuso;
+  const br = lerBase_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time']), fuso = br.fuso;
   const tempo = br['Scan Time'], wbs = br['Waybill Number'], sts = br['Scan Station'], ufs = br['Scan State Name'];
   const g = new Map();
   for (let i = 0; i < wbs.length; i++) {
@@ -261,7 +264,7 @@ function eficienciaHC_() {
 
 // ---------- No Tracking ----------
 function noTracking_() {
-  const b = lerBase_('No_Tracking', ['Último status', 'Horário da última leitura', 'Última estação de leitura', 'Último tipo de insucesso', 'Station']), fuso = b.fuso;
+  const b = lerBase_('No_Tracking', ['Último status', 'Horário da última leitura', 'Última estação de leitura', 'Último tipo de insucesso', 'Station'], ['Horário da última leitura']), fuso = b.fuso;
   const st = b['Último status'], hr = b['Horário da última leitura'], dc = b['Última estação de leitura'], ins = b['Último tipo de insucesso'], ds = b['Station'];
   const datas = hr.map((v) => paraData_(v instanceof Date ? v : txt_(v).slice(0, 10), fuso));
   const ref = datas.filter((d) => d).sort().pop();
@@ -296,7 +299,7 @@ function erroTriagem_() {
   }
   mesclar_('Erro', ['Data', 'DC', 'DS_Recebeu', 'DS_Correta', 'Erros'], [...g].map(([k, n]) => [...k.split('|'), n]));
 
-  const bt = lerBase_('Taxas', ['Data', 'Station', 'Orders Loading']), fuso = bt.fuso;
+  const bt = lerBase_('Taxas', ['Data', 'Station', 'Orders Loading'], ['Data']), fuso = bt.fuso;
   const d = bt['Data'], s = bt['Station'], o = bt['Orders Loading'];
   const t = new Map();
   for (let i = 0; i < d.length; i++) {
@@ -333,7 +336,7 @@ function carregamento_(dc) {
   };
   const cancelado = (v) => ['Y', 'YES', 'SIM', 'S', 'TRUE', '1'].includes(txt_(v).toUpperCase());
   const base = 'Carregamento_' + dc.slice(3);
-  const bl = lerBase_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio']), fuso = bl.fuso;
+  const bl = lerBase_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time']), fuso = bl.fuso;
   const datas = bl['Data'], wbs = bl['Waybill No.'], vids = bl['Vehicle ID'], trens = bl['Train No'];
   const scans = bl['Scan Time'], canc = bl['Is Cancel'], sacas = bl['Scan No.'], destinos = bl['Destination Statio'];
 
@@ -354,7 +357,7 @@ function carregamento_(dc) {
       e.nomes.add(ds); e.sacas.add(saca); enviadas.set(ch, e);
     }
   }
-  const bro = lerBase_(base, ['Vehicle Id', 'Planned Departure Time', 'Act Departure Time']);
+  const bro = lerBase_(base, ['Vehicle Id', 'Planned Departure Time', 'Act Departure Time'], ['Planned Departure Time', 'Act Departure Time']);
   const ids = bro['Vehicle Id'], prevs = bro['Planned Departure Time'], reais = bro['Act Departure Time'];
   const porVeiculo = new Map();
   for (let i = 0; i < ids.length; i++) {
@@ -390,7 +393,7 @@ function sacas_() {
   const portal = SpreadsheetApp.getActiveSpreadsheet();
   const abaEnv = portal.getSheetByName('Sacas_Enviadas');
   const env = abaEnv && abaEnv.getLastRow() > 1 ? abaEnv.getRange(2, 1, abaEnv.getLastRow() - 1, 5).getDisplayValues() : [];
-  const bf = lerBase_('Formulario_Sacas', ['Data do Preenchimento', 'DC', 'Quantidade de Sacas', 'DS']), fuso = bf.fuso;
+  const bf = lerBase_('Formulario_Sacas', ['Data do Preenchimento', 'DC', 'Quantidade de Sacas', 'DS'], ['Data do Preenchimento']), fuso = bf.fuso;
   const m = new Map();
   const linha = (ini, dc, chave) => { const k = `${ini}|${dc}|${chave}`; if (!m.has(k)) m.set(k, {ini, dc, ds: '', env: 0, dev: 0}); return m.get(k); };
   env.forEach(([ini, dc, chave, ds, n]) => { if (!ini) return; const r = linha(ini, dc, chave); r.ds = r.ds || ds; r.env += numero_(n); });
