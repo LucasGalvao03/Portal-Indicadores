@@ -41,3 +41,7 @@ Basta abrir o `index.html` no navegador (dois cliques).
 ## Script do Google (apps-script/)
 
 `portal_dados.gs`: fica na planilha Portal_Dados (Extensões → Apps Script). Depois de colar, executar `configurar` uma vez: cria a aba Config, agenda as atualizações a cada hora (cada parte em uma execução, por causa do limite de 6 minutos do Google) e faz uma primeira rodada nos minutos seguintes.
+
+## Banco de dados (Supabase) — em migração
+
+Projeto Supabase `iemdlzzzynzmmbnczjwk`. Os arquivos em `supabase/` criam as tabelas (colar no SQL Editor do Supabase, na ordem). Tabelas brutas ficam fechadas para o público (RLS); o site lê só os resumos com a chave pública. A carga é feita pela função `sincronizarBanco` do script da Portal_Dados, com a chave secreta guardada nas Propriedades do script (`SUPABASE_URL`, `SUPABASE_KEY`). Fase atual: No Scan, rodando em paralelo à Portal_Dados para conferência.

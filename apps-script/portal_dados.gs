@@ -51,7 +51,7 @@ const BASES = [
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
 const FUNCOES = ['atualizarRecebido', 'atualizarConsolidado', 'atualizarNoScan', 'atualizarCarregamentoPI2',
-  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves'];
+  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco'];
 
 // ---------- instalação ----------
 function configurar() {
@@ -95,7 +95,7 @@ const TAREFAS = {
   atualizarRecebido: () => atualizarRecebido(), atualizarConsolidado: () => atualizarConsolidado(),
   atualizarNoScan: () => atualizarNoScan(), atualizarCarregamentoPI2: () => atualizarCarregamentoPI2(),
   atualizarCarregamentoCE1: () => atualizarCarregamentoCE1(), atualizarCarregamentoPI3: () => atualizarCarregamentoPI3(),
-  atualizarLeves: () => atualizarLeves(),
+  atualizarLeves: () => atualizarLeves(), sincronizarBanco: () => sincronizarBanco(),
 };
 function atualizarLeves() { // bases pequenas, uma não impede a outra
   [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
@@ -405,4 +405,98 @@ function sacas_() {
     x.ds = x.ds || ds; x.dev += numero_(bf['Quantidade de Sacas'][i]);
   });
   mesclar_('Sacas', ['Ini_Envio', 'DC', 'DS', 'Enviadas', 'Devolvidas'], [...m.values()].map((r) => [r.ini, r.dc, r.ds, r.env, r.dev]), {chave: () => 'tudo'});
+}
+
+// =====================================================================
+// Banco de dados (Supabase) — fase 1: No Scan
+// Copia do Sheet para o banco só as colunas que o cálculo usa; o banco recalcula o resumo.
+// Configuração (uma vez): Apps Script → Configurações do projeto (engrenagem) → Propriedades do script:
+//   SUPABASE_URL = https://xxxx.supabase.co
+//   SUPABASE_KEY = chave SECRETA do Supabase (sb_secret_... ou service_role). Nunca colocar no site/GitHub.
+// Sem essas propriedades, a sincronização não faz nada.
+// =====================================================================
+function supa_() {
+  const p = PropertiesService.getScriptProperties();
+  const url = txt_(p.getProperty('SUPABASE_URL')).replace(/\/+$/, ''), key = txt_(p.getProperty('SUPABASE_KEY'));
+  if (!url || !key) return null;
+  const headers = {apikey: key};
+  if (key.startsWith('eyJ')) headers.Authorization = 'Bearer ' + key; // chave antiga (JWT)
+  return {url, headers};
+}
+function isoHora_(v) { // texto de data/hora → 'aaaa-mm-dd hh:mm:ss'
+  const t = txt_(v);
+  let m = t.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')} ${m[4].padStart(2, '0')}:${m[5]}:${m[6] || '00'}`;
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')} ${m[4].padStart(2, '0')}:${m[5]}:${m[6] || '00'}`;
+  return '';
+}
+// Envia em lotes (vários pedidos ao mesmo tempo). conflito = colunas da chave; mesclar = atualizar se já existe.
+function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
+  const LOTE = 10000, PARALELO = 6, inicio = Date.now();
+  const pedidos = [];
+  for (let i = 0; i < linhas.length; i += LOTE) {
+    pedidos.push({
+      url: `${cfg.url}/rest/v1/${tabela}?on_conflict=${conflito}`, method: 'post', contentType: 'application/json',
+      headers: Object.assign({Prefer: `resolution=${mesclar ? 'merge' : 'ignore'}-duplicates,return=minimal`}, cfg.headers),
+      payload: JSON.stringify(linhas.slice(i, i + LOTE)), muteHttpExceptions: true,
+    });
+  }
+  for (let i = 0; i < pedidos.length; i += PARALELO) {
+    if (limiteMs && Date.now() - inicio > limiteMs) return false; // continua na próxima rodada
+    UrlFetchApp.fetchAll(pedidos.slice(i, i + PARALELO)).forEach((r) => {
+      if (r.getResponseCode() >= 300) throw new Error(`Supabase ${tabela}: ${r.getResponseCode()} ${r.getContentText().slice(0, 300)}`);
+    });
+  }
+  return true;
+}
+
+function sincronizarBanco() {
+  const cfg = supa_();
+  if (!cfg) return; // banco ainda não configurado
+  const inicio = Date.now(), props = PropertiesService.getScriptProperties();
+  const norm = (v) => txt_(typeof v === 'number' ? v.toFixed(0) : v).toUpperCase();
+  // corte: reenvia só os últimos dias (correções atrasadas); a primeira vez manda tudo
+  const corte = props.getProperty('banco_noscan_corte') || '0000-00-00';
+
+  // mapa DS × DC (pequeno: manda tudo, atualizando)
+  const bm = lerBase_('Mapa_DS_DC', ['DS', 'DC']), mapa = new Map();
+  bm['DS'].forEach((x, i) => { const ds = txt_(x); if (ds.startsWith('DS ') && !mapa.has(ds)) mapa.set(ds, txt_(bm['DC'][i])); });
+  enviarBanco_(cfg, 'mapa_ds_dc', [...mapa].map(([ds, dc]) => ({ds, dc})), 'ds', true);
+
+  // recebimento na DS (mesmos filtros do No Scan)
+  const br = lerBase_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time']), fuso = br.fuso;
+  const rec = [];
+  let maior = '';
+  br['Waybill Number'].forEach((w, i) => {
+    const wb = norm(w), st = txt_(br['Scan Station'][i]), uf = txt_(br['Scan State Name'][i]);
+    const hora = isoHora_(br['Scan Time'][i]), data = hora.slice(0, 10);
+    if (!wb || !hora || st === 'DC-CE1' || st === 'DC-PI2' || uf === '' || uf === 'C2104008501') return;
+    if (data > maior) maior = data;
+    if (data >= corte) rec.push({data, scan_time: hora, ds: st, waybill: wb});
+  });
+
+  // expedição do DC (só o waybill e a data)
+  const be = lerBase_('Expedicao_DC', ['Waybill No.', 'Scan Time'], ['Scan Time']);
+  const exp = [];
+  be['Waybill No.'].forEach((w, i) => {
+    const wb = norm(w), data = paraData_(txt_(be['Scan Time'][i]).slice(0, 10), fuso);
+    if (wb && (!data || data >= corte)) exp.push({waybill: wb, data: data || null});
+  });
+
+  const limite = 4.5 * 60 * 1000 - (Date.now() - inicio);
+  const ok = enviarBanco_(cfg, 'recebimento_ds', rec, 'waybill,scan_time,ds', false, limite / 2) &&
+             enviarBanco_(cfg, 'expedicao_dc', exp, 'waybill', false, limite - (Date.now() - inicio));
+  if (!ok) return; // não terminou: a próxima rodada reenvia (duplicados são ignorados)
+
+  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
+  if (r.getResponseCode() >= 300) throw new Error('Supabase atualizar_resumos: ' + r.getContentText().slice(0, 300));
+  if (maior) { // próximo corte: 2 dias antes do dia mais recente
+    const d = new Date(maior + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 2);
+    props.setProperty('banco_noscan_corte', d.toISOString().slice(0, 10));
+  }
+}
+function sincronizarBancoTudo() { // manual: reenvia o mês inteiro (se corrigiu dados antigos)
+  PropertiesService.getScriptProperties().deleteProperty('banco_noscan_corte');
+  sincronizarBanco();
 }
