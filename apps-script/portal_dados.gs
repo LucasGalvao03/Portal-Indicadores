@@ -6,6 +6,8 @@
  * com as mesmas regras dos relatórios em Excel e grava aqui, a cada hora.
  *
  * Virada do mês: crie as planilhas novas e cole os links delas na aba Config. Só isso.
+ * Extensão (planilha encheu no meio do mês): acrescente na Config mais uma linha com o MESMO nome
+ * de base e o link da planilha nova. O script lê todas as partes como se fossem uma só.
  * O histórico fica guardado: cada atualização troca só os meses que vieram na planilha atual.
  *
  * Instalar: Portal_Dados → Extensões → Apps Script → colar este código → salvar →
@@ -100,20 +102,38 @@ function atualizarLeves() { // bases pequenas, uma não impede a outra
 }
 
 // ---------- utilidades ----------
-function config_() {
+function config_() { // base → lista de planilhas (uma base pode ter várias partes / extensões)
   const aba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Config');
   const linhas = aba ? aba.getDataRange().getValues().slice(1) : [];
-  const m = new Map(BASES.map(([b, id]) => [b, id]));
+  const m = new Map();
   linhas.forEach(([b, link]) => {
-    const t = String(link || '').trim(), id = (t.match(/\/d\/([\w-]+)/) || [null, t])[1];
-    if (String(b).trim() && id) m.set(String(b).trim(), id);
+    const nome = txt_(b), t = txt_(link), id = (t.match(/\/d\/([\w-]+)/) || [null, t])[1];
+    if (!nome || !id) return;
+    if (!m.has(nome)) m.set(nome, []);
+    if (!m.get(nome).includes(id)) m.get(nome).push(id);
   });
+  BASES.forEach(([b, id]) => { if (!m.has(b)) m.set(b, [id]); }); // base sem linha na Config: usa a padrão
   return m;
 }
-function abrir_(base) {
-  const id = config_().get(base);
-  if (!id) throw new Error(`Base "${base}" sem link na aba Config`);
-  return SpreadsheetApp.openById(id);
+function abrirTodas_(base) {
+  const ids = config_().get(base);
+  if (!ids || !ids.length) throw new Error(`Base "${base}" sem link na aba Config`);
+  return ids.map((id) => SpreadsheetApp.openById(id));
+}
+/**
+ * Lê colunas de uma base juntando todas as partes listadas na Config (planilha principal + extensões).
+ * Em cada parte usa a primeira aba que tem todas as colunas pedidas. Datas usam o fuso da primeira parte.
+ */
+function lerBase_(base, colunas, exibidas) {
+  exibidas = exibidas || [];
+  const out = {fuso: null};
+  colunas.forEach((c) => { out[c] = []; });
+  for (const ss of abrirTodas_(base)) {
+    out.fuso = out.fuso || ss.getSpreadsheetTimeZone();
+    const aba = abaCom_(ss, colunas);
+    colunas.forEach((c) => { const v = lerColuna_(aba, c, exibidas.includes(c)); for (let i = 0; i < v.length; i++) out[c].push(v[i]); });
+  }
+  return out;
 }
 function cabecalho_(aba) {
   return aba.getLastColumn() ? aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0].map((x) => String(x).trim()) : [];
@@ -191,9 +211,8 @@ function mesclar_(nomeAba, cabecalho, novas, opcoes) {
 
 // ---------- OffLoading ----------
 function offLoading_(base, colunaDC, abaDestino, rotulo) {
-  const ss = abrir_(base), fuso = ss.getSpreadsheetTimeZone();
-  const aba = abaCom_(ss, ['Data_Operacao', colunaDC]);
-  const datas = lerColuna_(aba, 'Data_Operacao'), dcs = lerColuna_(aba, colunaDC);
+  const b = lerBase_(base, ['Data_Operacao', colunaDC]), fuso = b.fuso;
+  const datas = b['Data_Operacao'], dcs = b[colunaDC];
   const g = new Map();
   for (let i = 0; i < datas.length; i++) {
     const data = paraData_(datas[i], fuso), dc = txt_(dcs[i]);
@@ -205,16 +224,13 @@ function offLoading_(base, colunaDC, abaDestino, rotulo) {
 // ---------- No Scan ----------
 function atualizarNoScan() {
   const norm = (v) => txt_(typeof v === 'number' ? v.toFixed(0) : v).toUpperCase();
-  const exp = abrir_('Expedicao_DC');
-  const expedidos = new Set(lerColuna_(abaCom_(exp, ['Waybill No.']), 'Waybill No.').map(norm));
+  const expedidos = new Set(lerBase_('Expedicao_DC', ['Waybill No.'])['Waybill No.'].map(norm));
   const mapa = new Map();
-  const abaMapa = abaCom_(abrir_('Mapa_DS_DC'), ['DS', 'DC']), cm = cabecalho_(abaMapa);
-  abaMapa.getDataRange().getValues().slice(1).forEach((r) => { const ds = txt_(r[cm.indexOf('DS')]); if (ds.startsWith('DS ') && !mapa.has(ds)) mapa.set(ds, txt_(r[cm.indexOf('DC')])); });
+  const bm = lerBase_('Mapa_DS_DC', ['DS', 'DC']);
+  bm['DS'].forEach((x, i) => { const ds = txt_(x); if (ds.startsWith('DS ') && !mapa.has(ds)) mapa.set(ds, txt_(bm['DC'][i])); });
 
-  const ss = abrir_('Recebimento_DS'), fuso = ss.getSpreadsheetTimeZone();
-  const rec = abaCom_(ss, ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name']);
-  const tempo = lerColuna_(rec, 'Scan Time'), wbs = lerColuna_(rec, 'Waybill Number');
-  const sts = lerColuna_(rec, 'Scan Station'), ufs = lerColuna_(rec, 'Scan State Name');
+  const br = lerBase_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name']), fuso = br.fuso;
+  const tempo = br['Scan Time'], wbs = br['Waybill Number'], sts = br['Scan Station'], ufs = br['Scan State Name'];
   const g = new Map();
   for (let i = 0; i < wbs.length; i++) {
     const wb = norm(wbs[i]), st = txt_(sts[i]), uf = txt_(ufs[i]), data = paraData_(tempo[i], fuso);
@@ -229,9 +245,9 @@ function atualizarNoScan() {
 
 // ---------- Eficiência HC ----------
 function eficienciaHC_() {
-  const ss = abrir_('Eficiencia_HC'), fuso = ss.getSpreadsheetTimeZone(), linhas = [];
-  for (const dc of DCS) {
-    const aba = ss.getSheetByName(dc);
+  const linhas = [];
+  for (const ss of abrirTodas_('Eficiencia_HC')) for (const dc of DCS) {
+    const aba = ss.getSheetByName(dc), fuso = ss.getSpreadsheetTimeZone();
     if (!aba) continue;
     const datas = lerColuna_(aba, 'DATA'), vol = lerColuna_(aba, 'Volume'), pes = lerColuna_(aba, 'Total de pessoas');
     datas.forEach((d, i) => { const data = paraData_(d, fuso); if (data) linhas.push([data, dc, numero_(vol[i]), numero_(pes[i])]); });
@@ -241,10 +257,8 @@ function eficienciaHC_() {
 
 // ---------- No Tracking ----------
 function noTracking_() {
-  const ss = abrir_('No_Tracking'), fuso = ss.getSpreadsheetTimeZone();
-  const aba = abaCom_(ss, ['Último status', 'Horário da última leitura', 'Última estação de leitura']);
-  const st = lerColuna_(aba, 'Último status'), hr = lerColuna_(aba, 'Horário da última leitura');
-  const dc = lerColuna_(aba, 'Última estação de leitura'), ins = lerColuna_(aba, 'Último tipo de insucesso'), ds = lerColuna_(aba, 'Station');
+  const b = lerBase_('No_Tracking', ['Último status', 'Horário da última leitura', 'Última estação de leitura', 'Último tipo de insucesso', 'Station']), fuso = b.fuso;
+  const st = b['Último status'], hr = b['Horário da última leitura'], dc = b['Última estação de leitura'], ins = b['Último tipo de insucesso'], ds = b['Station'];
   const datas = hr.map((v) => paraData_(v instanceof Date ? v : txt_(v).slice(0, 10), fuso));
   const ref = datas.filter((d) => d).sort().pop();
   if (!ref) return;
@@ -267,10 +281,8 @@ function noTracking_() {
 
 // ---------- Erro de Triagem ----------
 function erroTriagem_() {
-  const ss = abrir_('Erro_Triagem');
-  const aba = abaCom_(ss, ['Waybill', 'Scan Date', 'Station Received', 'DS Delivery Station', 'Responsible']);
-  const wb = lerColuna_(aba, 'Waybill'), sd = lerColuna_(aba, 'Scan Date', true);
-  const rec = lerColuna_(aba, 'Station Received'), cor = lerColuna_(aba, 'DS Delivery Station'), resp = lerColuna_(aba, 'Responsible');
+  const be = lerBase_('Erro_Triagem', ['Waybill', 'Scan Date', 'Station Received', 'DS Delivery Station', 'Responsible'], ['Scan Date']);
+  const wb = be['Waybill'], sd = be['Scan Date'], rec = be['Station Received'], cor = be['DS Delivery Station'], resp = be['Responsible'];
   const g = new Map();
   for (let i = 0; i < wb.length; i++) {
     const r = txt_(rec[i]).toUpperCase(), c = txt_(cor[i]).toUpperCase(), data = paraData_(sd[i], '', true); // Scan Date vem como mês/dia/ano
@@ -280,9 +292,8 @@ function erroTriagem_() {
   }
   mesclar_('Erro', ['Data', 'DC', 'DS_Recebeu', 'DS_Correta', 'Erros'], [...g].map(([k, n]) => [...k.split('|'), n]));
 
-  const tx = abrir_('Taxas'), fuso = tx.getSpreadsheetTimeZone();
-  const at = abaCom_(tx, ['Data', 'Station', 'Orders Loading']);
-  const d = lerColuna_(at, 'Data'), s = lerColuna_(at, 'Station'), o = lerColuna_(at, 'Orders Loading');
+  const bt = lerBase_('Taxas', ['Data', 'Station', 'Orders Loading']), fuso = bt.fuso;
+  const d = bt['Data'], s = bt['Station'], o = bt['Orders Loading'];
   const t = new Map();
   for (let i = 0; i < d.length; i++) {
     const data = paraData_(d[i] instanceof Date ? d[i] : txt_(d[i]).split(' ')[0], fuso), st = txt_(s[i]);
@@ -293,10 +304,8 @@ function erroTriagem_() {
 
 // ---------- Lost ----------
 function lost_() {
-  const ss = abrir_('Lost');
-  const aba = abaCom_(ss, ['Waybill N', 'Resp', 'Date', 'Uploaded Declared Value']);
-  const wb = lerColuna_(aba, 'Waybill N'), resp = lerColuna_(aba, 'Resp'), dt = lerColuna_(aba, 'Date', true);
-  const val = lerColuna_(aba, 'Uploaded Declared Value', true), mot = lerColuna_(aba, 'Lost request reason'), scan = lerColuna_(aba, 'Last Scan Type');
+  const bl = lerBase_('Lost', ['Waybill N', 'Resp', 'Date', 'Uploaded Declared Value', 'Lost request reason', 'Last Scan Type'], ['Date', 'Uploaded Declared Value']);
+  const wb = bl['Waybill N'], resp = bl['Resp'], dt = bl['Date'], val = bl['Uploaded Declared Value'], mot = bl['Lost request reason'], scan = bl['Last Scan Type'];
   const g = new Map();
   for (let i = 0; i < wb.length; i++) {
     const dc = txt_(resp[i]), data = paraData_(dt[i], '');
@@ -319,11 +328,10 @@ function carregamento_(dc) {
     return null;
   };
   const cancelado = (v) => ['Y', 'YES', 'SIM', 'S', 'TRUE', '1'].includes(txt_(v).toUpperCase());
-  const ss = abrir_('Carregamento_' + dc.slice(3)), fuso = ss.getSpreadsheetTimeZone();
-  const leitura = abaCom_(ss, ['Train No', 'Vehicle ID', 'Scan Time']);
-  const datas = lerColuna_(leitura, 'Data'), wbs = lerColuna_(leitura, 'Waybill No.'), vids = lerColuna_(leitura, 'Vehicle ID');
-  const trens = lerColuna_(leitura, 'Train No'), scans = lerColuna_(leitura, 'Scan Time'), canc = lerColuna_(leitura, 'Is Cancel');
-  const sacas = lerColuna_(leitura, 'Scan No.'), destinos = lerColuna_(leitura, 'Destination Statio');
+  const base = 'Carregamento_' + dc.slice(3);
+  const bl = lerBase_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio']), fuso = bl.fuso;
+  const datas = bl['Data'], wbs = bl['Waybill No.'], vids = bl['Vehicle ID'], trens = bl['Train No'];
+  const scans = bl['Scan Time'], canc = bl['Is Cancel'], sacas = bl['Scan No.'], destinos = bl['Destination Statio'];
 
   const rotasDia = new Set(), veiculos = new Map(), enviadas = new Map();
   for (let i = 0; i < datas.length; i++) {
@@ -342,8 +350,8 @@ function carregamento_(dc) {
       e.nomes.add(ds); e.sacas.add(saca); enviadas.set(ch, e);
     }
   }
-  const abaRotas = abaCom_(ss, ['Vehicle Id', 'Planned Departure Time', 'Act Departure Time']);
-  const ids = lerColuna_(abaRotas, 'Vehicle Id'), prevs = lerColuna_(abaRotas, 'Planned Departure Time'), reais = lerColuna_(abaRotas, 'Act Departure Time');
+  const bro = lerBase_(base, ['Vehicle Id', 'Planned Departure Time', 'Act Departure Time']);
+  const ids = bro['Vehicle Id'], prevs = bro['Planned Departure Time'], reais = bro['Act Departure Time'];
   const porVeiculo = new Map();
   for (let i = 0; i < ids.length; i++) {
     const vid = txt_(ids[i]).toUpperCase();
@@ -378,19 +386,16 @@ function sacas_() {
   const portal = SpreadsheetApp.getActiveSpreadsheet();
   const abaEnv = portal.getSheetByName('Sacas_Enviadas');
   const env = abaEnv && abaEnv.getLastRow() > 1 ? abaEnv.getRange(2, 1, abaEnv.getLastRow() - 1, 5).getDisplayValues() : [];
-  const form = abrir_('Formulario_Sacas'), fuso = form.getSpreadsheetTimeZone();
-  const aba = abaCom_(form, ['Data do Preenchimento']), cab = cabecalho_(aba);
-  const dados = aba.getDataRange().getValues().slice(1);
-  const cD = cab.indexOf('Data do Preenchimento'), cDC = cab.indexOf('DC'), cQ = cab.indexOf('Quantidade de Sacas'), cDS = cab.indexOf('DS');
+  const bf = lerBase_('Formulario_Sacas', ['Data do Preenchimento', 'DC', 'Quantidade de Sacas', 'DS']), fuso = bf.fuso;
   const m = new Map();
   const linha = (ini, dc, chave) => { const k = `${ini}|${dc}|${chave}`; if (!m.has(k)) m.set(k, {ini, dc, ds: '', env: 0, dev: 0}); return m.get(k); };
   env.forEach(([ini, dc, chave, ds, n]) => { if (!ini) return; const r = linha(ini, dc, chave); r.ds = r.ds || ds; r.env += numero_(n); });
-  dados.forEach((r) => {
-    const data = paraData_(r[cD], fuso);
+  bf['Data do Preenchimento'].forEach((v, i) => {
+    const data = paraData_(v, fuso);
     if (!data) return;
     const d = new Date(terca_(data) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 7);
-    const ds = txt_(r[cDS]) || '(sem DS)', x = linha(d.toISOString().slice(0, 10), dcPadrao_(r[cDC]), chaveDS_(ds));
-    x.ds = x.ds || ds; x.dev += numero_(r[cQ]);
+    const ds = txt_(bf['DS'][i]) || '(sem DS)', x = linha(d.toISOString().slice(0, 10), dcPadrao_(bf['DC'][i]), chaveDS_(ds));
+    x.ds = x.ds || ds; x.dev += numero_(bf['Quantidade de Sacas'][i]);
   });
   mesclar_('Sacas', ['Ini_Envio', 'DC', 'DS', 'Enviadas', 'Devolvidas'], [...m.values()].map((r) => [r.ini, r.dc, r.ds, r.env, r.dev]), {chave: () => 'tudo'});
 }

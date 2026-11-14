@@ -28,6 +28,8 @@ Tudo passa pela planilha **Portal_Dados** (permanente, não muda de mês):
 
 **Virada do mês:** criar as planilhas novas e colar os links delas na aba Config. Mais nada.
 
+**Extensão no meio do mês** (planilha bateu o limite de 10 milhões de células): criar a planilha nova e acrescentar na Config mais uma linha com o mesmo nome de base e o link dela. O script junta as partes.
+
 O site mostra os gráficos e acumulados do mês operacional atual (da 1ª terça do mês até a véspera da 1ª terça do mês seguinte). A Visão geral e o Ranking (`js/resumo-ranking.js`) usam todo o histórico guardado; semanas sem dado guardado mantêm os números do Excel (`dados/novembro.js`).
 
 No fim da página, em "Sobre os dados", aparece de onde cada seção está lendo.
