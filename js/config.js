@@ -1,14 +1,14 @@
 /* ===== CONFIGURAÇÃO: cole aqui os links "Publicar na Web" (CSV) de cada aba Resumo_Portal ===== */
 window.PORTAL_FONTES = {
-  off_rec: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTQw2d3_Bp6RglbWRYVWZzuv73Jx_Ot02f7N0eu0raBSjwEVHsqka-HSC2a_XG1e8vopApbwiYt2B9Z/pub?gid=1662318029&single=true&output=csv',   // planilha Operação_Descarregamento → aba Resumo_Portal → CSV
-  off_con: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS2Umt64KxvTy-WzKPCQXMM41t01s2r91ZCfAOOOUalyPzJzcs4NuVcpB3oPT2Q9qtHJ1yrnlSmDpBE/pub?gid=825983484&single=true&output=csv',   // planilha Operacao_Consolidacao → aba Resumo_Portal → CSV
-  hc: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRdL-BsXQPxXEE3BjXyCaS-UJGF8NVvZIEAnYk6FIgg8hJARvZZYb4EegZZS6L8DKANdFLhFYq97l9U/pub?gid=106511584&single=true&output=csv',         // planilha Eficiencia_HC_DCs → aba Resumo_Portal → CSV
-  notracking: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4IW1kp5cJXg7rmIedzKdbf5wi_4bWAGb00FzpCgcOy4wazUDEgCmMP9zci7BPaoUamBMskkpO3ZlA/pub?gid=1741807357&single=true&output=csv', // planilha DB_No_Tracking → aba Resumo_Portal → CSV
-  erro_erros: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQPrRMJ8fg8tf2LPYh3RtqVivWqLlz1c97yBjOe3QxTgpT-ueMJEvxByDrm8iH7Z04QBy8dqWDKRhkH/pub?gid=142583016&single=true&output=csv',  // planilha DB_PBI_Erro de triagem → aba Resumo_Portal → CSV
-  erro_receb: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRtMzdQ35YlZ-u93gpTg5iluOMhnfYUNdeYLWOBwhu4j7SvL46gJHa3MEwmCeZxMV2evLBrgFB35592/pub?gid=0&single=true&output=csv',  // planilha Taxas → aba Leitura → CSV
+  off_rec: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1906441046&single=true&output=csv', // Portal_Dados → aba OffLoading_Recebido
+  off_con: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=762659921&single=true&output=csv', // Portal_Dados → aba OffLoading_Consolidado
+  hc: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1853941927&single=true&output=csv', // Portal_Dados → aba HC
+  notracking: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1930732591&single=true&output=csv', // Portal_Dados → aba NoTracking
+  erro_erros: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=227314504&single=true&output=csv', // Portal_Dados → aba Erro
+  erro_receb: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=2090136329&single=true&output=csv', // Portal_Dados → aba Erro_Recebidos
   noscan: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRS8h__hOPxmXb5-Bd42P_2DSc_CyEiMFrdPasVQvgnx6JNbouMSfB0e9EXoycynLQ9zWzpo8vSdjro/pub?gid=792435957&single=true&output=csv',      // planilha Leitura_de_Recebimento → aba Resumo_Portal (script) → CSV
   pontualidade: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMA_BZ4FDRnKqlQYZwDc3qBNTdQLDfXyCdwwYoChcoN9nPadMv0MYyoo6C_-joFRd5e3DNVYumcsiu/pub?gid=1474863310&single=true&output=csv', // planilha Leitura_de_Carregamento_DC-PI2 → aba Resumo_Portal (script) → CSV
   sacas: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMA_BZ4FDRnKqlQYZwDc3qBNTdQLDfXyCdwwYoChcoN9nPadMv0MYyoo6C_-joFRd5e3DNVYumcsiu/pub?gid=1562218948&single=true&output=csv',        // planilha Leitura_de_Carregamento_DC-PI2 → aba Resumo_Sacas (script) → CSV
-  lost: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_kwqM6e-U9WPii8-xbjxw4ZGouwbJ7O2NSmxZCelf0PlMM1E7DjfY71Plsu_JuVYy67qOK6LM6J31/pub?gid=1969681700&single=true&output=csv',         // planilha Lost / Damage → aba Resumo_Portal → CSV
-  nt_hist: '',      // Portal_Dados → aba NoTracking_Historico → CSV
+  lost: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1120359276&single=true&output=csv', // Portal_Dados → aba Lost
+  nt_hist: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=656099243&single=true&output=csv', // Portal_Dados → aba NoTracking_Historico
 };
