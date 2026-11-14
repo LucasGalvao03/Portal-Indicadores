@@ -10,9 +10,9 @@
  *
  * Instalar: Portal_Dados → Extensões → Apps Script → colar este código → salvar →
  *           escolher "configurar" → Executar (use Executar, não Depuração).
- *           Ela cria a aba Config (se não existir), agenda tudo a cada hora e roda uma
- *           primeira vez em seguida (cada parte em sua própria execução, por causa do limite
- *           de 6 minutos do Google).
+ *           Ela cria a aba Config (se não existir) e liga a fila: a cada 5 minutos roda uma
+ *           tarefa, uma de cada vez (ciclo completo em ~35 a 45 minutos).
+ *           Para atualizar uma parte na hora, execute a função dela (ex.: atualizarNoScan).
  *
  * Regras (iguais às consultas do Power Query dos relatórios):
  *  OffLoading      pacotes por Data_Operacao e DC (descarregamento = recebido; consolidação = consolidado)
@@ -61,10 +61,26 @@ function configurar() {
     c.setColumnWidth(1, 170); c.setColumnWidth(2, 520); c.setColumnWidth(3, 460); c.setFrozenRows(1);
   }
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
-  FUNCOES.forEach((f, i) => {
-    ScriptApp.newTrigger(f).timeBased().everyHours(1).create();
-    ScriptApp.newTrigger(f).timeBased().after((1 + i) * 60 * 1000).create(); // primeira rodada, uma por minuto
-  });
+  PropertiesService.getScriptProperties().setProperty('fila_pos', '0');
+  ScriptApp.newTrigger('proximaTarefa').timeBased().everyMinutes(5).create();
+}
+
+/**
+ * Fila: a cada 5 minutos roda UMA tarefa, na ordem de FUNCOES. Se a anterior ainda estiver rodando,
+ * pula e tenta no próximo ciclo. Assim nunca roda mais de uma ao mesmo tempo (rodar todas juntas
+ * deixava cada uma lenta e estourava os 6 minutos do Google). Ciclo completo: ~35 a 45 minutos.
+ */
+function proximaTarefa() {
+  const trava = LockService.getScriptLock();
+  if (!trava.tryLock(1000)) return; // outra tarefa ainda rodando
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const i = Number(props.getProperty('fila_pos') || 0) % FUNCOES.length;
+    props.setProperty('fila_pos', String(i + 1));
+    TAREFAS[FUNCOES[i]]();
+  } finally {
+    trava.releaseLock();
+  }
 }
 
 // ---------- tarefas agendadas ----------
@@ -73,6 +89,12 @@ function atualizarConsolidado() { offLoading_('Consolidacao', 'Scan Station', 'O
 function atualizarCarregamentoPI2() { carregamento_('DC-PI2'); }
 function atualizarCarregamentoCE1() { carregamento_('DC-CE1'); }
 function atualizarCarregamentoPI3() { carregamento_('DC-PI3'); }
+const TAREFAS = {
+  atualizarRecebido: () => atualizarRecebido(), atualizarConsolidado: () => atualizarConsolidado(),
+  atualizarNoScan: () => atualizarNoScan(), atualizarCarregamentoPI2: () => atualizarCarregamentoPI2(),
+  atualizarCarregamentoCE1: () => atualizarCarregamentoCE1(), atualizarCarregamentoPI3: () => atualizarCarregamentoPI3(),
+  atualizarLeves: () => atualizarLeves(),
+};
 function atualizarLeves() { // bases pequenas, uma não impede a outra
   [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
@@ -149,7 +171,8 @@ function mesclar_(nomeAba, cabecalho, novas, opcoes) {
   const chaveMes = opcoes.chave || ((r) => String(r[0]).slice(0, 7));
   const trocar = new Set(novas.map(chaveMes));
   const trava = LockService.getScriptLock();
-  trava.waitLock(240000);
+  const jaTem = trava.hasLock(); // quando vem da fila, a trava já é desta execução
+  if (!jaTem) trava.waitLock(240000);
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const aba = ss.getSheetByName(nomeAba) || ss.insertSheet(nomeAba);
@@ -162,7 +185,7 @@ function mesclar_(nomeAba, cabecalho, novas, opcoes) {
     aba.getRange(1, 1, linhas.length, cabecalho.length).setValues(linhas);
     aba.getRange(1, cabecalho.length + 2).setValue('Atualizado em ' + Utilities.formatDate(new Date(), 'America/Fortaleza', 'dd/MM/yyyy HH:mm'));
   } finally {
-    trava.releaseLock();
+    if (!jaTem) trava.releaseLock();
   }
 }
 
