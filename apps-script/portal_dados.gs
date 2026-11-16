@@ -451,13 +451,41 @@ function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
   return true;
 }
 
+/**
+ * Lê só as linhas NOVAS de uma base desde a última carga (marca por planilha/aba nas propriedades),
+ * no máximo `limite` linhas por parte. Relê 200 linhas antes da marca por segurança (duplicadas são
+ * ignoradas pelo banco). Se a aba encolheu (dados colados de novo), recomeça do início.
+ * Devolve as colunas + `marcas` para gravar depois que o envio der certo.
+ */
+function lerNovas_(base, colunas, exibidas, limite) {
+  const props = PropertiesService.getScriptProperties();
+  const out = {fuso: null, marcas: {}, completo: true};
+  colunas.forEach((c) => { out[c] = []; });
+  for (const ss of abrirTodas_(base)) {
+    out.fuso = out.fuso || ss.getSpreadsheetTimeZone();
+    const aba = abaCom_(ss, colunas), cab = cabecalho_(aba), ultima = aba.getLastRow();
+    const chave = `marca|${base}|${ss.getId()}|${aba.getSheetId()}`;
+    const marca = Number(props.getProperty(chave) || 1);
+    const ini = marca > ultima ? 2 : Math.max(2, marca - 200);
+    const fim = Math.min(ultima, ini + limite - 1);
+    if (fim < ultima) out.completo = false;
+    out.marcas[chave] = fim;
+    if (fim < ini) continue;
+    colunas.forEach((c) => {
+      const r = aba.getRange(ini, cab.indexOf(c) + 1, fim - ini + 1, 1);
+      const v = exibidas.includes(c) ? r.getDisplayValues() : r.getValues();
+      for (let i = 0; i < v.length; i++) out[c].push(v[i][0]);
+    });
+  }
+  return out;
+}
+
 function sincronizarBanco() {
   const cfg = supa_();
   if (!cfg) return; // banco ainda não configurado
-  const inicio = Date.now(), props = PropertiesService.getScriptProperties();
+  const props = PropertiesService.getScriptProperties();
   const norm = (v) => txt_(typeof v === 'number' ? v.toFixed(0) : v).toUpperCase();
-  // corte: reenvia só os últimos dias (correções atrasadas); a primeira vez manda tudo
-  const corte = props.getProperty('banco_noscan_corte') || '0000-00-00';
+  const LIMITE = 100000; // linhas novas por base em cada rodada (a primeira carga leva algumas rodadas)
 
   // mapa DS × DC (pequeno: manda tudo, atualizando)
   const bm = lerBase_('Mapa_DS_DC', ['DS', 'DC']), mapa = new Map();
@@ -465,38 +493,43 @@ function sincronizarBanco() {
   enviarBanco_(cfg, 'mapa_ds_dc', [...mapa].map(([ds, dc]) => ({ds, dc})), 'ds', true);
 
   // recebimento na DS (mesmos filtros do No Scan)
-  const br = lerBase_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time']), fuso = br.fuso;
+  const br = lerNovas_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time'], LIMITE);
   const rec = [];
-  let maior = '';
   br['Waybill Number'].forEach((w, i) => {
-    const wb = norm(w), st = txt_(br['Scan Station'][i]), uf = txt_(br['Scan State Name'][i]);
-    const hora = isoHora_(br['Scan Time'][i]), data = hora.slice(0, 10);
+    const wb = norm(w), st = txt_(br['Scan Station'][i]), uf = txt_(br['Scan State Name'][i]), hora = isoHora_(br['Scan Time'][i]);
     if (!wb || !hora || st === 'DC-CE1' || st === 'DC-PI2' || uf === '' || uf === 'C2104008501') return;
-    if (data > maior) maior = data;
-    if (data >= corte) rec.push({data, scan_time: hora, ds: st, waybill: wb});
+    rec.push({data: hora.slice(0, 10), scan_time: hora, ds: st, waybill: wb});
   });
+  enviarBanco_(cfg, 'recebimento_ds', rec, 'waybill,scan_time,ds', false);
+  Object.entries(br.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
 
   // expedição do DC (só o waybill e a data)
-  const be = lerBase_('Expedicao_DC', ['Waybill No.', 'Scan Time'], ['Scan Time']);
+  const be = lerNovas_('Expedicao_DC', ['Waybill No.', 'Scan Time'], ['Scan Time'], LIMITE);
   const exp = [];
   be['Waybill No.'].forEach((w, i) => {
-    const wb = norm(w), data = paraData_(txt_(be['Scan Time'][i]).slice(0, 10), fuso);
-    if (wb && (!data || data >= corte)) exp.push({waybill: wb, data: data || null});
+    const wb = norm(w), hora = isoHora_(be['Scan Time'][i]);
+    if (wb) exp.push({waybill: wb, data: hora ? hora.slice(0, 10) : null});
   });
+  enviarBanco_(cfg, 'expedicao_dc', exp, 'waybill', false);
+  Object.entries(be.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
 
-  const limite = 4.5 * 60 * 1000 - (Date.now() - inicio);
-  const ok = enviarBanco_(cfg, 'recebimento_ds', rec, 'waybill,scan_time,ds', false, limite / 2) &&
-             enviarBanco_(cfg, 'expedicao_dc', exp, 'waybill', false, limite - (Date.now() - inicio));
-  if (!ok) return; // não terminou: a próxima rodada reenvia (duplicados são ignorados)
-
+  // recalcula no banco e traz o resultado para a Portal_Dados
   const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
   if (r.getResponseCode() >= 300) throw new Error('Supabase atualizar_resumos: ' + r.getContentText().slice(0, 300));
-  if (maior) { // próximo corte: 2 dias antes do dia mais recente
-    const d = new Date(maior + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 2);
-    props.setProperty('banco_noscan_corte', d.toISOString().slice(0, 10));
+  const linhas = [];
+  for (let off = 0; ; off += 1000) { // o Supabase entrega no máximo 1000 linhas por pedido
+    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/resumo_noscan?select=*&order=Data.asc,DC.asc,DS.asc&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
+    if (g.getResponseCode() >= 300) throw new Error('Supabase resumo_noscan: ' + g.getContentText().slice(0, 300));
+    const lote = JSON.parse(g.getContentText());
+    lote.forEach((x) => linhas.push([x.Data, x.DC, x.DS, x.Recebidos, x.Sem_Registro]));
+    if (lote.length < 1000) break;
   }
+  const aba = props.getProperty('banco_noscan_destino') || 'NoScan_Banco'; // vira 'NoScan' depois de conferido
+  mesclar_(aba, ['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'], linhas, {chave: () => 'tudo'});
+  if (!br.completo || !be.completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
-function sincronizarBancoTudo() { // manual: reenvia o mês inteiro (se corrigiu dados antigos)
-  PropertiesService.getScriptProperties().deleteProperty('banco_noscan_corte');
+function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
+  const props = PropertiesService.getScriptProperties();
+  props.getKeys().filter((k) => k.startsWith('marca|')).forEach((k) => props.deleteProperty(k));
   sincronizarBanco();
 }
