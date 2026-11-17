@@ -50,7 +50,7 @@ const BASES = [
   ['Lost', '13htSF1yt2LurhflNsPOfwxOikQDTC1AIJLq57UVSuBo', 'Lost · Lost / Damage (mensal)'],
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
-const FUNCOES = ['atualizarRecebido', 'atualizarConsolidado', 'atualizarNoScan', 'atualizarCarregamentoPI2',
+const FUNCOES = ['atualizarRecebido', 'atualizarConsolidado', 'atualizarCarregamentoPI2',
   'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco'];
 
 // ---------- instalação ----------
@@ -539,7 +539,7 @@ function sincronizarBanco() {
     lote.forEach((x) => linhas.push([x.Data, x.DC, x.DS, x.Recebidos, x.Sem_Registro]));
     if (lote.length < 1000) break;
   }
-  const aba = props.getProperty('banco_noscan_destino') || 'NoScan_Banco'; // vira 'NoScan' depois de conferido
+  const aba = props.getProperty('banco_noscan_destino') || 'NoScan'; // No Scan agora vem do banco (conferido em 16/11)
   mesclar_(aba, ['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'], linhas, {chave: () => 'tudo'});
   if (!br.completo || !be.completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
