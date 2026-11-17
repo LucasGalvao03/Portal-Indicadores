@@ -544,9 +544,18 @@ function sincronizarBanco() {
     lote.forEach((x) => linhas.push([x.Data, x.DC, x.DS, x.Recebidos, x.Sem_Registro]));
     if (lote.length < 1000) break;
   }
-  const aba = props.getProperty('banco_noscan_destino') || 'NoScan'; // No Scan agora vem do banco (conferido em 16/11)
-  mesclar_(aba, ['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'], linhas, {chave: () => 'tudo'});
+  comTrava_(() => {
+    const aba = props.getProperty('banco_noscan_destino') || 'NoScan'; // No Scan agora vem do banco (conferido em 16/11)
+    mesclar_(aba, ['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'], linhas, {chave: () => 'tudo'});
+  });
   if (!br.completo || !be.completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
+}
+// Roda fn com a trava da planilha; se a fila estiver ocupada por mais de 20 s, desiste (fica para a próxima rodada).
+function comTrava_(fn) {
+  const trava = LockService.getScriptLock();
+  if (trava.hasLock()) { fn(); return true; }
+  if (!trava.tryLock(20000)) { console.log('Fila ocupada com outra tarefa: as abas serão atualizadas na próxima rodada (os dados já estão no banco).'); return false; }
+  try { fn(); return true; } finally { trava.releaseLock(); }
 }
 // Lê um resumo do banco (de 1000 em 1000) e grava numa aba da Portal_Dados.
 function trazerResumo_(cfg, visao, colunas, aba) {
@@ -587,8 +596,10 @@ function sincronizarOffLoading() {
   });
   recalcularBanco_(cfg);
   const sufixo = props.getProperty('banco_offloading_sufixo') ?? ''; // OffLoading agora vem do banco (conferido em 16/11)
-  trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
-  trazerResumo_(cfg, 'resumo_offloading_consolidado', ['Data', 'DC', 'Consolidado'], 'OffLoading_Consolidado' + sufixo);
+  comTrava_(() => {
+    trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
+    trazerResumo_(cfg, 'resumo_offloading_consolidado', ['Data', 'DC', 'Consolidado'], 'OffLoading_Consolidado' + sufixo);
+  });
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
 
@@ -597,10 +608,10 @@ function sincronizarCarregamento() {
   const cfg = supa_();
   if (!cfg) return;
   const props = PropertiesService.getScriptProperties();
-  const LIMITE = 40000, inicio = Date.now();
+  const LIMITE = 30000, inicio = Date.now();
   let completo = true;
   ['DC-PI2', 'DC-CE1', 'DC-PI3'].forEach((dc) => {
-    if (Date.now() - inicio > 150000) { completo = false; return; } // sem tempo: fica para a próxima rodada
+    if (Date.now() - inicio > 100000) { completo = false; return; } // sem tempo: fica para a próxima rodada
     const base = 'Carregamento_' + dc.slice(3);
     // leituras novas: rotas × veículos, rotas válidas e sacas enviadas (sem repetir)
     const b = lerNovas_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time'], LIMITE);
@@ -635,12 +646,15 @@ function sincronizarCarregamento() {
       if (!a || (prev != null && (a.prev == null || prev < a.prev))) pv.set(vid, {dc, vid, prev, real});
     });
     enviarBanco_(cfg, 'partida', [...pv.values()], 'dc,vid', true);
+    console.log(`${dc}: ${b['Data'].length} leituras enviadas (${Math.round((Date.now() - inicio) / 1000)} s)`);
   });
   recalcularBanco_(cfg);
   const sufixo = props.getProperty('banco_carregamento_sufixo') ?? '_Banco'; // vira '' depois de conferido
-  trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
-  trazerResumo_(cfg, 'resumo_sacas_enviadas', ['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], 'Sacas_Enviadas' + sufixo);
-  if (!sufixo) sacas_(); // junta com as devolvidas do formulário
+  comTrava_(() => {
+    trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
+    trazerResumo_(cfg, 'resumo_sacas_enviadas', ['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], 'Sacas_Enviadas' + sufixo);
+    if (!sufixo) sacas_(); // junta com as devolvidas do formulário
+  });
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
 
