@@ -567,10 +567,11 @@ function sincronizarOffLoading() {
   const cfg = supa_();
   if (!cfg) return;
   const props = PropertiesService.getScriptProperties();
-  const LIMITE = 100000;
+  const LIMITE = 30000, inicio = Date.now(); // pedaços menores: cada rodada fica bem abaixo dos 6 minutos
   let completo = true;
   [['Descarregamento', 'Estacao_Descarregamento', 'offloading_recebido'],
    ['Consolidacao', 'Scan Station', 'offloading_consolidado']].forEach(([base, colunaDC, tabela]) => {
+    if (Date.now() - inicio > 150000) { completo = false; return; } // sem tempo: fica para a próxima rodada
     const b = lerNovas_(base, ['Data_Operacao', colunaDC], ['Data_Operacao'], LIMITE);
     const linhas = [];
     b['Data_Operacao'].forEach((d, i) => {
