@@ -46,10 +46,10 @@
   function grafico(box, dias) {
     box.replaceChildren();
     const W = Math.max(300, box.clientWidth || 600), H = 230, ml = 46, mr = 46, mt = 22, mb = 24;
-    box.append(PT.legend([{name: 'Recebido', color: 'var(--pt-c1)'}, {name: 'Consolidado', color: 'var(--pt-c2)'}, {name: '% Consolidado', color: 'var(--color-fg-muted)'}]));
-    const svg = d3.select(box).append('svg').attr('width', '100%').attr('height', H).attr('role', 'img').attr('aria-label', 'Recebido, consolidado e taxa dos últimos 7 dias');
+    box.append(PT.legend([{name: 'Consolidado', color: 'var(--pt-c2)'}, {name: '% Consolidado', color: 'var(--color-fg-muted)'}]));
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('height', H).attr('role', 'img').attr('aria-label', 'Consolidado e taxa dos últimos 7 dias');
     const x = d3.scalePoint().domain(dias.map((d) => d.data)).range([ml, W - mr]).padding(0.4);
-    const y = d3.scaleLinear().domain([0, (d3.max(dias, (d) => Math.max(d.rec, d.con)) || 1) * 1.18]).nice(4).range([H - mb, mt]);
+    const y = d3.scaleLinear().domain([0, (d3.max(dias, (d) => d.con) || 1) * 1.18]).nice(4).range([H - mb, mt]);
     const tx = dias.filter((d) => d.taxa != null).map((d) => d.taxa);
     const y2 = d3.scaleLinear().domain([0, Math.max(1.2, (d3.max(tx) || 1) * 1.1)]).range([H - mb, mt]);
     svg.append('g').attr('class', 'grid').attr('transform', `translate(${ml},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - ml - mr)).tickFormat(''));
@@ -58,7 +58,7 @@
     svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - mb})`).call(d3.axisBottom(x).tickFormat(PT.dData).tickSizeOuter(0));
     const ref = svg.append('g').attr('class', 'ref');
     ref.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y2(0.8)).attr('y2', y2(0.8));
-    ref.append('text').attr('x', ml + 4).attr('y', y2(0.8) + 13).text('Meta 80%');
+    ref.append('text').attr('x', W - mr - 4).attr('y', y2(0.8) + 13).attr('text-anchor', 'end').text('Meta 80%');
     const serie = (campo, cor, escala, tracejado, rotulo) => {
       const pts = dias.filter((d) => d[campo] != null);
       svg.append('path').datum(pts).attr('fill', 'none').style('stroke', cor).attr('stroke-width', 2.2).attr('stroke-dasharray', tracejado ? '5 4' : null)
@@ -67,7 +67,6 @@
       if (rotulo) svg.append('g').selectAll('text').data(pts).join('text').attr('class', 'off-rot').attr('x', (d) => x(d.data)).attr('y', (d) => escala(d[campo]) - 8)
         .attr('text-anchor', 'middle').style('fill', cor).text((d) => rotulo(d[campo]));
     };
-    serie('rec', 'var(--pt-c1)', y, false);
     serie('con', 'var(--pt-c2)', y, false);
     serie('taxa', 'var(--color-fg-muted)', y2, true, (v) => PT.fmt(v, 'pct'));
     const tip = (() => { const t = el('div', 'pt-tip'); t.hidden = true; box.append(t); return t; })();
