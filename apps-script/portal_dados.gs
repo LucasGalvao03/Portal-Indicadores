@@ -51,7 +51,7 @@ const BASES = [
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
 const FUNCOES = ['atualizarCarregamentoPI2',
-  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading'];
+  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading', 'sincronizarCarregamento'];
 
 // ---------- instalação ----------
 function configurar() {
@@ -97,6 +97,7 @@ const TAREFAS = {
   atualizarCarregamentoCE1: () => atualizarCarregamentoCE1(), atualizarCarregamentoPI3: () => atualizarCarregamentoPI3(),
   atualizarLeves: () => atualizarLeves(), sincronizarBanco: () => sincronizarBanco(),
   sincronizarOffLoading: () => sincronizarOffLoading(),
+  sincronizarCarregamento: () => sincronizarCarregamento(),
 };
 function atualizarLeves() { // bases pequenas, uma não impede a outra
   [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
@@ -325,16 +326,18 @@ function lost_() {
 }
 
 // ---------- Pontualidade de Transporte e Controle de Sacas (mesma base de carregamento) ----------
+function horaNum_(v, fuso) { // aaaammddhhmmss, para comparar
+  if (v instanceof Date) { const p = (n) => String(n).padStart(2, '0'); return Number(horaLocal_(v, fuso) + p(v.getUTCMinutes()) + p(v.getUTCSeconds())); }
+  const t = txt_(v);
+  let m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return Number(m[1] + m[2] + m[3] + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
+  m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return Number(m[3] + m[2].padStart(2, '0') + m[1].padStart(2, '0') + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
+  return null;
+}
+const cancelado_ = (v) => ['Y', 'YES', 'SIM', 'S', 'TRUE', '1'].includes(txt_(v).toUpperCase());
 function carregamento_(dc) {
-  const hora = (v, fuso) => { // aaaammddhhmmss, para comparar
-    if (v instanceof Date) { const p = (n) => String(n).padStart(2, '0'); return Number(horaLocal_(v, fuso) + p(v.getUTCMinutes()) + p(v.getUTCSeconds())); }
-    const t = txt_(v);
-    let m = t.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if (m) return Number(m[1] + m[2] + m[3] + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
-    m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if (m) return Number(m[3] + m[2].padStart(2, '0') + m[1].padStart(2, '0') + m[4].padStart(2, '0') + m[5] + (m[6] || '00'));
-    return null;
-  };
+  const hora = horaNum_;
   const cancelado = (v) => ['Y', 'YES', 'SIM', 'S', 'TRUE', '1'].includes(txt_(v).toUpperCase());
   const base = 'Carregamento_' + dc.slice(3);
   const bl = lerBase_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time']), fuso = bl.fuso;
@@ -589,9 +592,62 @@ function sincronizarOffLoading() {
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
 
+// ---------- Pontualidade e Sacas enviadas no banco (base de carregamento de cada DC) ----------
+function sincronizarCarregamento() {
+  const cfg = supa_();
+  if (!cfg) return;
+  const props = PropertiesService.getScriptProperties();
+  const LIMITE = 40000, inicio = Date.now();
+  let completo = true;
+  ['DC-PI2', 'DC-CE1', 'DC-PI3'].forEach((dc) => {
+    if (Date.now() - inicio > 150000) { completo = false; return; } // sem tempo: fica para a próxima rodada
+    const base = 'Carregamento_' + dc.slice(3);
+    // leituras novas: rotas × veículos, rotas válidas e sacas enviadas (sem repetir)
+    const b = lerNovas_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time'], LIMITE);
+    const rv = new Map(), ok = new Map(), sc = new Map();
+    b['Data'].forEach((d, i) => {
+      const scan = b['Scan Time'][i];
+      const data = paraData_(d, b.fuso) || paraData_(txt_(scan).slice(0, 10), b.fuso);
+      if (!data) return;
+      const rota = txt_(b['Train No'][i]) || '(sem rota)', wb = txt_(b['Waybill No.'][i]);
+      const valido = txt_(scan) && wb && !cancelado_(b['Is Cancel'][i]);
+      if (valido) ok.set(`${data}|${rota}`, {dc, data, rota});
+      const vid = txt_(b['Vehicle ID'][i]).toUpperCase();
+      if (vid) rv.set(`${data}|${rota}|${vid}`, {dc, data, rota, vid});
+      const saca = txt_(b['Scan No.'][i]), ds = txt_(b['Destination Statio'][i]) || '(sem DS)';
+      if (valido && saca && saca !== wb && !/^(DC-|CDC|RDC)/i.test(ds)) {
+        const semana = terca_(data), chave = chaveDS_(ds);
+        sc.set(`${semana}|${chave}|${saca}`, {dc, semana, chave_ds: chave, saca, ds});
+      }
+    });
+    enviarBanco_(cfg, 'rota_veiculo', [...rv.values()], 'dc,data,rota,vid', false);
+    enviarBanco_(cfg, 'rota_valida', [...ok.values()], 'dc,data,rota', false);
+    enviarBanco_(cfg, 'saca_enviada', [...sc.values()], 'dc,semana,chave_ds,saca', false);
+    Object.entries(b.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
+    completo = completo && b.completo;
+    // saídas dos veículos (aba de rotas, pequena: manda tudo e atualiza)
+    const bro = lerBase_(base, ['Vehicle Id', 'Planned Departure Time', 'Act Departure Time'], ['Planned Departure Time', 'Act Departure Time']);
+    const pv = new Map();
+    bro['Vehicle Id'].forEach((x, i) => {
+      const vid = txt_(x).toUpperCase();
+      if (!vid) return;
+      const prev = horaNum_(bro['Planned Departure Time'][i], bro.fuso), real = horaNum_(bro['Act Departure Time'][i], bro.fuso), a = pv.get(vid);
+      if (!a || (prev != null && (a.prev == null || prev < a.prev))) pv.set(vid, {dc, vid, prev, real});
+    });
+    enviarBanco_(cfg, 'partida', [...pv.values()], 'dc,vid', true);
+  });
+  recalcularBanco_(cfg);
+  const sufixo = props.getProperty('banco_carregamento_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
+  trazerResumo_(cfg, 'resumo_sacas_enviadas', ['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], 'Sacas_Enviadas' + sufixo);
+  if (!sufixo) sacas_(); // junta com as devolvidas do formulário
+  if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
+}
+
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
   const props = PropertiesService.getScriptProperties();
   props.getKeys().filter((k) => k.startsWith('marca|')).forEach((k) => props.deleteProperty(k));
   sincronizarBanco();
   sincronizarOffLoading();
+  sincronizarCarregamento();
 }
