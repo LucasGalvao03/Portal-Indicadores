@@ -533,8 +533,7 @@ function sincronizarBanco() {
   Object.entries(be.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
 
   // recalcula no banco e traz o resultado para a Portal_Dados
-  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
-  if (r.getResponseCode() >= 300) throw new Error('Supabase atualizar_resumos: ' + r.getContentText().slice(0, 300));
+  recalcularBanco_(cfg, 'noscan');
   const linhas = [];
   for (let off = 0; ; off += 1000) { // o Supabase entrega no máximo 1000 linhas por pedido
     const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/resumo_noscan?select=*&order=Data.asc,DC.asc,DS.asc&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
@@ -568,8 +567,8 @@ function trazerResumo_(cfg, visao, colunas, aba) {
   }
   mesclar_(aba, colunas, linhas, {chave: () => 'tudo'});
 }
-function recalcularBanco_(cfg) {
-  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
+function recalcularBanco_(cfg, area) { // area: 'noscan', 'offloading' ou 'carregamento' (só os resumos dela)
+  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: JSON.stringify({area}), muteHttpExceptions: true});
   if (r.getResponseCode() >= 300) throw new Error('Supabase atualizar_resumos: ' + r.getContentText().slice(0, 300));
 }
 
@@ -593,7 +592,7 @@ function sincronizarOffLoading() {
     Object.entries(b.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
     completo = completo && b.completo;
   });
-  recalcularBanco_(cfg);
+  recalcularBanco_(cfg, 'offloading');
   const sufixo = props.getProperty('banco_offloading_sufixo') ?? ''; // OffLoading agora vem do banco (conferido em 16/11)
   comTrava_(() => {
     trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
@@ -648,7 +647,7 @@ function sincronizarCarregamento() {
     enviarBanco_(cfg, 'partida', [...pv.values()], 'dc,vid', true);
     console.log(`${dc}: ${b['Data'].length} leituras enviadas (${Math.round((Date.now() - inicio) / 1000)} s)`);
   });
-  recalcularBanco_(cfg);
+  recalcularBanco_(cfg, 'carregamento');
   const sufixo = props.getProperty('banco_carregamento_sufixo') ?? ''; // Pontualidade e Sacas agora vêm do banco (conferido em 17/11)
   comTrava_(() => {
     trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
