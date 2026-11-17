@@ -433,20 +433,35 @@ function isoHora_(v) { // texto de data/hora → 'aaaa-mm-dd hh:mm:ss'
 }
 // Envia em lotes (vários pedidos ao mesmo tempo). conflito = colunas da chave; mesclar = atualizar se já existe.
 function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
-  const LOTE = 10000, PARALELO = 6, inicio = Date.now();
+  const LOTE = 2500, PARALELO = 3, inicio = Date.now();
   const pedidos = [];
   for (let i = 0; i < linhas.length; i += LOTE) {
     pedidos.push({
-      url: `${cfg.url}/rest/v1/${tabela}?on_conflict=${conflito}`, method: 'post', contentType: 'application/json',
+      url: `${cfg.url}/rest/v1/${tabela}?on_conflict=${encodeURIComponent(conflito)}`, method: 'post', contentType: 'application/json',
       headers: Object.assign({Prefer: `resolution=${mesclar ? 'merge' : 'ignore'}-duplicates,return=minimal`}, cfg.headers),
       payload: JSON.stringify(linhas.slice(i, i + LOTE)), muteHttpExceptions: true,
     });
   }
+  const confere = (r) => {
+    if (r.getResponseCode() >= 300) throw new Error(`Supabase ${tabela}: ${r.getResponseCode()} ${r.getContentText().slice(0, 300)}`);
+  };
   for (let i = 0; i < pedidos.length; i += PARALELO) {
     if (limiteMs && Date.now() - inicio > limiteMs) return false; // continua na próxima rodada
-    UrlFetchApp.fetchAll(pedidos.slice(i, i + PARALELO)).forEach((r) => {
-      if (r.getResponseCode() >= 300) throw new Error(`Supabase ${tabela}: ${r.getResponseCode()} ${r.getContentText().slice(0, 300)}`);
-    });
+    const grupo = pedidos.slice(i, i + PARALELO);
+    try {
+      UrlFetchApp.fetchAll(grupo).forEach(confere);
+    } catch (e) {
+      if (String(e).includes('Supabase')) throw e; // erro do banco: não adianta repetir
+      // falha de conexão: manda um por vez, com até 3 tentativas
+      grupo.forEach((pedido) => {
+        for (let t = 1; ; t++) {
+          try { confere(UrlFetchApp.fetch(pedido.url, pedido)); break; } catch (e2) {
+            if (String(e2).includes('Supabase') || t >= 3) throw e2;
+            Utilities.sleep(3000 * t);
+          }
+        }
+      });
+    }
   }
   return true;
 }
