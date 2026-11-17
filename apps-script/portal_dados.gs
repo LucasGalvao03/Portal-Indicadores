@@ -51,7 +51,7 @@ const BASES = [
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
 const FUNCOES = ['atualizarRecebido', 'atualizarConsolidado', 'atualizarCarregamentoPI2',
-  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco'];
+  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading'];
 
 // ---------- instalação ----------
 function configurar() {
@@ -96,6 +96,7 @@ const TAREFAS = {
   atualizarNoScan: () => atualizarNoScan(), atualizarCarregamentoPI2: () => atualizarCarregamentoPI2(),
   atualizarCarregamentoCE1: () => atualizarCarregamentoCE1(), atualizarCarregamentoPI3: () => atualizarCarregamentoPI3(),
   atualizarLeves: () => atualizarLeves(), sincronizarBanco: () => sincronizarBanco(),
+  sincronizarOffLoading: () => sincronizarOffLoading(),
 };
 function atualizarLeves() { // bases pequenas, uma não impede a outra
   [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
@@ -474,7 +475,7 @@ function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
  */
 function lerNovas_(base, colunas, exibidas, limite) {
   const props = PropertiesService.getScriptProperties();
-  const out = {fuso: null, marcas: {}, completo: true};
+  const out = {fuso: null, marcas: {}, completo: true, origem: []};
   colunas.forEach((c) => { out[c] = []; });
   for (const ss of abrirTodas_(base)) {
     out.fuso = out.fuso || ss.getSpreadsheetTimeZone();
@@ -486,6 +487,7 @@ function lerNovas_(base, colunas, exibidas, limite) {
     if (fim < ultima) out.completo = false;
     out.marcas[chave] = fim;
     if (fim < ini) continue;
+    for (let l = ini; l <= fim; l++) out.origem.push(`${ss.getId()}:${aba.getSheetId()}:${l}`);
     colunas.forEach((c) => {
       const r = aba.getRange(ini, cab.indexOf(c) + 1, fim - ini + 1, 1);
       const v = exibidas.includes(c) ? r.getDisplayValues() : r.getValues();
@@ -543,8 +545,52 @@ function sincronizarBanco() {
   mesclar_(aba, ['Data', 'DC', 'DS', 'Recebidos', 'Sem_Registro'], linhas, {chave: () => 'tudo'});
   if (!br.completo || !be.completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
+// Lê um resumo do banco (de 1000 em 1000) e grava numa aba da Portal_Dados.
+function trazerResumo_(cfg, visao, colunas, aba) {
+  const linhas = [];
+  for (let off = 0; ; off += 1000) {
+    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${visao}?select=*&order=${colunas.slice(0, 2).map((c) => c + '.asc').join(',')}&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
+    if (g.getResponseCode() >= 300) throw new Error(`Supabase ${visao}: ` + g.getContentText().slice(0, 300));
+    const lote = JSON.parse(g.getContentText());
+    lote.forEach((x) => linhas.push(colunas.map((c) => x[c])));
+    if (lote.length < 1000) break;
+  }
+  mesclar_(aba, colunas, linhas, {chave: () => 'tudo'});
+}
+function recalcularBanco_(cfg) {
+  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
+  if (r.getResponseCode() >= 300) throw new Error('Supabase atualizar_resumos: ' + r.getContentText().slice(0, 300));
+}
+
+// ---------- OffLoading no banco (recebido e consolidado) ----------
+function sincronizarOffLoading() {
+  const cfg = supa_();
+  if (!cfg) return;
+  const props = PropertiesService.getScriptProperties();
+  const LIMITE = 100000;
+  let completo = true;
+  [['Descarregamento', 'Estacao_Descarregamento', 'offloading_recebido'],
+   ['Consolidacao', 'Scan Station', 'offloading_consolidado']].forEach(([base, colunaDC, tabela]) => {
+    const b = lerNovas_(base, ['Data_Operacao', colunaDC], ['Data_Operacao'], LIMITE);
+    const linhas = [];
+    b['Data_Operacao'].forEach((d, i) => {
+      const data = paraData_(d, b.fuso), dc = txt_(b[colunaDC][i]);
+      if (data && dc) linhas.push({origem: b.origem[i], data, dc});
+    });
+    enviarBanco_(cfg, tabela, linhas, 'origem', true);
+    Object.entries(b.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
+    completo = completo && b.completo;
+  });
+  recalcularBanco_(cfg);
+  const sufixo = props.getProperty('banco_offloading_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
+  trazerResumo_(cfg, 'resumo_offloading_consolidado', ['Data', 'DC', 'Consolidado'], 'OffLoading_Consolidado' + sufixo);
+  if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
+}
+
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
   const props = PropertiesService.getScriptProperties();
   props.getKeys().filter((k) => k.startsWith('marca|')).forEach((k) => props.deleteProperty(k));
   sincronizarBanco();
+  sincronizarOffLoading();
 }
