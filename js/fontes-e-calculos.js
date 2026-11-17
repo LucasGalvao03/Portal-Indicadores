@@ -44,17 +44,24 @@ dash.loader('off_con', {description: 'Transforma a aba Resumo_Portal (Data, DC, 
   const iso = (t) => { const p = String(t).split('/'); return p.length === 3 ? `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}` : String(t); };
   return {data: v.slice(1).filter((x) => x[0] && x[1]).map((x) => ({data: iso(x[0]), dc: x[1], consolidado: Number(x[2]) || 0})), columns: ['data', 'dc', 'consolidado']};
 }});
-dash.calc('off_diario', {
+dash.calc('off_todos', {
   inputs: ['off_rec', 'off_con'],
-  title: 'Taxa de consolidação por dia e DC',
-  description: 'Junta recebido e consolidado por dia e DC (só DC-PI2, DC-CE1 e DC-PI3) e calcula consolidado ÷ recebido.',
+  title: 'OffLoading por dia e DC (todos os meses)',
+  description: 'Junta recebido e consolidado por dia e DC (só DC-PI2, DC-CE1 e DC-PI3), com todo o histórico guardado.',
   fn: (off_rec, off_con) => {
     const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
     const m = new Map();
-    for (const x of off_rec) { if (!DCS.includes(x.dc)) continue; const k = x.data + '|' + x.dc; m.set(k, {...(m.get(k) || {chave: k, data: x.data, dc: x.dc, recebido_off: 0, consolidado: 0}), recebido_off: x.recebido}); }
-    for (const x of off_con) { if (!DCS.includes(x.dc)) continue; const k = x.data + '|' + x.dc; m.set(k, {...(m.get(k) || {chave: k, data: x.data, dc: x.dc, recebido_off: 0, consolidado: 0}), consolidado: x.consolidado}); }
-    return window.PORTAL_MES.filtra([...m.values()].map((r) => ({...r, taxa_consolidacao: r.recebido_off ? r.consolidado / r.recebido_off : null})).sort((a, b) => a.data.localeCompare(b.data)));
+    const pega = (x) => { const k = x.data + '|' + x.dc; if (!m.has(k)) m.set(k, {chave: k, data: x.data, dc: x.dc, recebido_off: 0, consolidado: 0}); return m.get(k); };
+    for (const x of off_rec) if (DCS.includes(x.dc)) pega(x).recebido_off = x.recebido;
+    for (const x of off_con) if (DCS.includes(x.dc)) pega(x).consolidado = x.consolidado;
+    return [...m.values()].map((r) => ({...r, taxa_consolidacao: r.recebido_off ? r.consolidado / r.recebido_off : null})).sort((a, b) => a.data.localeCompare(b.data));
   },
+});
+dash.calc('off_diario', {
+  inputs: ['off_todos'],
+  title: 'Taxa de consolidação por dia e DC',
+  description: 'Os dias do mês operacional mais recente, com consolidado ÷ recebido.',
+  fn: (off_todos) => window.PORTAL_MES.filtra(off_todos),
 });
 dash.calc('off_total', {
   inputs: ['off_diario'],

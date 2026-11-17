@@ -9,17 +9,6 @@
   const dcCell = (r) => { const s = PT.el('span', 'pt-dc'); const i = PT.el('i'); i.style.background = PT.cor(r.dc); s.append(i, document.createTextNode(r.dc)); return s; };
   const pctCell = (f, fmt, meta, maior) => (r) => { const s = PT.el('span', r[f] == null ? '' : ((maior ? r[f] >= meta : r[f] <= meta) ? 'pt-good' : 'pt-bad'), PT.fmt(r[f], fmt)); return s; };
 
-  dash.draw('off-linha', (box) => {
-    const g = dash.data('off_diario');
-    if (g.status !== 'ok') { box.replaceChildren(PT.el('p', 'pt-note', g.status === 'error' ? 'Falha ao carregar.' : '—')); return; }
-    const d = g.data;
-    PT.line(box, {series: serie(d, 'taxa_consolidacao', (r) => `${PT.fmt(r.consolidado, 'int')} de ${PT.fmt(r.recebido_off, 'int')}`), yFmt: (v) => PT.fmt(v, 'pct'),
-      refs: [{y: 0.8, label: 'Meta 80%'}, {y: 0.9, label: 'Desafio 90%'}], aria: 'Taxa de consolidação diária por DC'});
-  });
-  dash.draw('off-linhas', (tb) => {
-    const g = dash.data('off_total'); const t = g.status === 'ok' ? g.data : null; if (!t) { tb.replaceChildren(); return; }
-    PT.rows(tb, t, [{node: dcCell}, {f: 'recebido_off', fmt: 'int', cls: 'num'}, {f: 'consolidado', fmt: 'int', cls: 'num'}, {node: pctCell('taxa_consolidacao', 'pct', 0.8, true), cls: 'num'}], (r) => r.dc);
-  });
   dash.draw('off-hora-dia', (p) => {
     const g = dash.data('consolidacao_hora');
     p.textContent = g.status === 'ok' && g.data.length ? `Dia ${PT.dDataAno(g.data[0].data)} · Nordeste II` : '—';

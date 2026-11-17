@@ -97,20 +97,8 @@
         <p>Pacotes consolidados em saca sobre os pacotes recebidos, por dia. Meta 80% · desafio 90%. Lido direto do Google Sheets a cada abertura.</p>
       </div>
     </div>
-    <div class="pt-card" id="off-grafico">
-      <h3>Taxa de consolidação por dia</h3>
-      <div class="pt-chart" data-draw="off-linha" data-source="off_diario"></div>
-    </div>
+    <div id="off-painel" class="off-painel" data-draw="off-painel" data-source="off_todos"></div>
     <div class="pt-grid2">
-      <div class="pt-card" id="off-tabela">
-        <h3>Acumulado do período por DC</h3>
-        <div class="pt-tbl-wrap">
-          <table class="pt-tbl" data-source="off_total" data-row-key="dc">
-            <thead><tr><th data-field="dc">DC</th><th class="num" data-field="recebido_off">Recebido</th><th class="num" data-field="consolidado">Consolidado</th><th class="num" data-field="taxa_consolidacao">Taxa</th></tr></thead>
-            <tbody data-draw="off-linhas"></tbody>
-          </table>
-        </div>
-      </div>
       <div class="pt-card" id="off-hora">
         <h3>Recebido x consolidado por hora</h3>
         <p class="pt-sub" data-draw="off-hora-dia" data-source="consolidacao_hora">—</p>
@@ -373,6 +361,7 @@
 <script src="js/secoes/visao-geral.js"></script>
 <script src="js/secoes/ranking.js"></script>
 <script src="js/secoes/graficos-diarios.js"></script>
+<script src="js/secoes/offloading.js"></script>
 <script src="js/secoes/no-tracking.js"></script>
 <script src="js/secoes/lost.js"></script>
 <script src="js/secoes/controle-sacas.js"></script>
