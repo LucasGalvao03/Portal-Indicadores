@@ -50,8 +50,7 @@ const BASES = [
   ['Lost', '13htSF1yt2LurhflNsPOfwxOikQDTC1AIJLq57UVSuBo', 'Lost · Lost / Damage (mensal)'],
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
-const FUNCOES = ['atualizarCarregamentoPI2',
-  'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading', 'sincronizarCarregamento'];
+const FUNCOES = ['atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading', 'sincronizarCarregamento'];
 
 // ---------- instalação ----------
 function configurar() {
@@ -649,7 +648,7 @@ function sincronizarCarregamento() {
     console.log(`${dc}: ${b['Data'].length} leituras enviadas (${Math.round((Date.now() - inicio) / 1000)} s)`);
   });
   recalcularBanco_(cfg);
-  const sufixo = props.getProperty('banco_carregamento_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  const sufixo = props.getProperty('banco_carregamento_sufixo') ?? ''; // Pontualidade e Sacas agora vêm do banco (conferido em 17/11)
   comTrava_(() => {
     trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
     trazerResumo_(cfg, 'resumo_sacas_enviadas', ['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], 'Sacas_Enviadas' + sufixo);
