@@ -50,7 +50,7 @@ const BASES = [
   ['Lost', '13htSF1yt2LurhflNsPOfwxOikQDTC1AIJLq57UVSuBo', 'Lost · Lost / Damage (mensal)'],
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
-const FUNCOES = ['atualizarRecebido', 'atualizarConsolidado', 'atualizarCarregamentoPI2',
+const FUNCOES = ['atualizarCarregamentoPI2',
   'atualizarCarregamentoCE1', 'atualizarCarregamentoPI3', 'atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading'];
 
 // ---------- instalação ----------
@@ -583,7 +583,7 @@ function sincronizarOffLoading() {
     completo = completo && b.completo;
   });
   recalcularBanco_(cfg);
-  const sufixo = props.getProperty('banco_offloading_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  const sufixo = props.getProperty('banco_offloading_sufixo') ?? ''; // OffLoading agora vem do banco (conferido em 16/11)
   trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
   trazerResumo_(cfg, 'resumo_offloading_consolidado', ['Data', 'DC', 'Consolidado'], 'OffLoading_Consolidado' + sufixo);
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
