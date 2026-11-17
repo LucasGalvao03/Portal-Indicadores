@@ -560,7 +560,7 @@ function comTrava_(fn) {
 function trazerResumo_(cfg, visao, colunas, aba) {
   const linhas = [];
   for (let off = 0; ; off += 1000) {
-    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${visao}?select=*&order=${colunas.slice(0, 2).map((c) => c + '.asc').join(',')}&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
+    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${visao}?select=*&order=${colunas.slice(0, 3).map((c) => c + '.asc').join(',')}&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
     if (g.getResponseCode() >= 300) throw new Error(`Supabase ${visao}: ` + g.getContentText().slice(0, 300));
     const lote = JSON.parse(g.getContentText());
     lote.forEach((x) => linhas.push(colunas.map((c) => x[c])));
@@ -580,14 +580,14 @@ function sincronizarOffLoading() {
   const props = PropertiesService.getScriptProperties();
   const LIMITE = 30000, inicio = Date.now(); // pedaços menores: cada rodada fica bem abaixo dos 6 minutos
   let completo = true;
-  [['Descarregamento', 'Estacao_Descarregamento', 'offloading_recebido'],
-   ['Consolidacao', 'Scan Station', 'offloading_consolidado']].forEach(([base, colunaDC, tabela]) => {
+  [['Descarregamento', 'Estacao_Descarregamento', 'Hora_Bipe', 'offloading_recebido'],
+   ['Consolidacao', 'Scan Station', 'Scan Time', 'offloading_consolidado']].forEach(([base, colunaDC, colunaHora, tabela]) => {
     if (Date.now() - inicio > 150000) { completo = false; return; } // sem tempo: fica para a próxima rodada
-    const b = lerNovas_(base, ['Data_Operacao', colunaDC], ['Data_Operacao'], LIMITE);
+    const b = lerNovas_(base, ['Data_Operacao', colunaDC, colunaHora], ['Data_Operacao', colunaHora], LIMITE);
     const linhas = [];
     b['Data_Operacao'].forEach((d, i) => {
-      const data = paraData_(d, b.fuso), dc = txt_(b[colunaDC][i]);
-      if (data && dc) linhas.push({origem: b.origem[i], data, dc});
+      const data = paraData_(d, b.fuso), dc = txt_(b[colunaDC][i]), h = isoHora_(b[colunaHora][i]);
+      if (data && dc) linhas.push({origem: b.origem[i], data, dc, hora: h ? Number(h.slice(11, 13)) : null});
     });
     enviarBanco_(cfg, tabela, linhas, 'origem', true);
     Object.entries(b.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
@@ -598,6 +598,7 @@ function sincronizarOffLoading() {
   comTrava_(() => {
     trazerResumo_(cfg, 'resumo_offloading_recebido', ['Data', 'DC', 'Recebido'], 'OffLoading_Recebido' + sufixo);
     trazerResumo_(cfg, 'resumo_offloading_consolidado', ['Data', 'DC', 'Consolidado'], 'OffLoading_Consolidado' + sufixo);
+    trazerResumo_(cfg, 'resumo_offloading_hora', ['Data', 'DC', 'Hora', 'Recebido', 'Consolidado'], 'OffLoading_Hora');
   });
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
 }
@@ -655,6 +656,13 @@ function sincronizarCarregamento() {
     if (!sufixo) sacas_(); // junta com as devolvidas do formulário
   });
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
+}
+
+// Manual, uma vez: reenvia o OffLoading desde o início (para preencher a hora das linhas já enviadas).
+function recarregarOffLoading() {
+  const props = PropertiesService.getScriptProperties();
+  props.getKeys().filter((k) => k.startsWith('marca|Descarregamento|') || k.startsWith('marca|Consolidacao|')).forEach((k) => props.deleteProperty(k));
+  sincronizarOffLoading();
 }
 
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)

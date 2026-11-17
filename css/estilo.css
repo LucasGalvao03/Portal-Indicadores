@@ -163,3 +163,6 @@ html, body { margin: 0; background: var(--color-bg); }
 .off-sub { white-space: nowrap; font-size: 11px; color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
 .off-graf { min-height: 250px; }
 .pt-chart .off-rot { font-size: 11px; font-weight: var(--cds-font-weight-medium); font-family: var(--font-anthropic-sans); }
+.off-pico { margin-left: auto; font-size: var(--cds-font-size-caption); opacity: .9; }
+.off-hora-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--cds-gap-md); }
+.off-hora-cab h3 { margin: 0; }

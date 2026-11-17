@@ -4,6 +4,7 @@
   const st = dash._state, L = dash._loaders;
   window.PORTAL_ORIGEM = {};
   const valoresDoSnapshot = (id) => {
+    if (id === 'off_hora') return [['Data', 'DC', 'Hora', 'Recebido', 'Consolidado'], ...(SNAP.tables.consolidacao_hora || []).map((r) => [r.data, 'Nordeste II', String(parseInt(r.hora, 10)), String(r.recebido || 0), String(r.consolidado || 0)])];
     const campo = id === 'off_rec' ? ['recebido_off', 'Recebido'] : ['consolidado', 'Consolidado'];
     const br = (iso) => iso.split('-').reverse().join('/');
     return [['Data', 'DC', campo[1]], ...SNAP.tables.diario.filter((r) => r[campo[0]] != null).map((r) => [br(r.data), r.dc, String(r[campo[0]])])];
@@ -11,7 +12,7 @@
   await Promise.all(Object.keys(L).map(async (id) => {
     try {
       let answer;
-      if (id === 'off_rec' || id === 'off_con') {
+      if (id === 'off_rec' || id === 'off_con' || id === 'off_hora') {
         if (F[id]) {
           try {
             const t = await (await fetch(F[id], {cache: 'no-store'})).text();

@@ -6,6 +6,16 @@
   const soma = (d, dias) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + dias); return ISO(t); };
   const terca = (d) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 5) % 7)); return ISO(t); };
   let diaEscolhido = null; // null = último dia com dados
+  let dcHora = 'Nordeste II';  // filtro do gráfico por hora
+  // linhas por hora de um dia (todos os DCs somados ou um DC)
+  const porHora = (horas, dia, dc) => {
+    const m = new Map();
+    for (const r of horas) if (r.data === dia && (dc === 'Nordeste II' || r.dc === dc)) {
+      const x = m.get(r.hora) || {hora: r.hora, rec: 0, con: 0}; x.rec += r.recebido; x.con += r.consolidado; m.set(r.hora, x);
+    }
+    return [...m.values()].sort((a, b) => a.hora - b.hora);
+  };
+  const pico = (linhas, campo) => { let m = null; for (const x of linhas) if (x[campo] > 0 && (!m || x[campo] > m[campo])) m = x; return m ? String(m.hora).padStart(2, '0') + 'h' : '—'; };
 
   // soma recebido/consolidado de um conjunto de linhas entre duas datas (inclusive)
   const total = (rows, de, ate, dc) => {
@@ -81,7 +91,7 @@
   }
 
   // ----- painel de um DC -----
-  function painel(rows, dc, dia, mesIni) {
+  function painel(rows, dc, dia, mesIni, horas) {
     const p = el('div', 'off-dc');
     const d0 = total(rows, dia, dia, dc), da = total(rows, soma(dia, -1), soma(dia, -1), dc);
     const semIni = terca(dia), sem = total(rows, semIni, dia, dc), semAnt = total(rows, soma(semIni, -7), soma(semIni, -1), dc);
@@ -92,6 +102,8 @@
     const h = el('div', 'off-dc-h');
     const nome = el('b', '', dc); nome.style.setProperty('--cor', PT.cor(dc));
     h.append(nome, el('span', 'sep', '|'), el('span', '', `Recebido x Consolidado · últimos 7 dias até ${PT.dData(dia)}`));
+    const ph = porHora(horas, dia, dc);
+    if (ph.length) h.append(el('span', 'off-pico', `Pico receb. ${pico(ph, 'rec')} · Pico consol. ${pico(ph, 'con')}`));
     const corpo = el('div', 'off-dc-b');
     const kpis = el('div', 'off-kpis');
     const kpi = (rot, valor, sub, seta) => {
@@ -143,6 +155,25 @@
       cartao('Total Consolidado', PT.fmt(d0.con, 'int'), faixa(PT.fmt(da.con, 'int'), variacao(d0.con, da.con), PT.fmt(mes.con, 'int'))),
       cartao('Consolidado x Recebido %', PT.fmt(d0.taxa, 'pct'), faixa(PT.fmt(da.taxa, 'pct'), d0.taxa != null && da.taxa != null ? variacao(d0.taxa, da.taxa, true) : null, PT.fmt(mes.taxa, 'pct'))),
     );
-    box.replaceChildren(ctl, top, ...DCS.map((dc) => painel(rows, dc, dia, mesIni)));
+    const gh = dash.data('off_hora'), horas = gh.status === 'ok' ? gh.data : [];
+
+    // recebido x consolidado por hora do dia escolhido
+    const card = el('div', 'pt-card');
+    const cab = el('div', 'off-hora-cab');
+    const selDc = el('select', 'dash-select');
+    ['Nordeste II', ...DCS].forEach((d) => { const o = el('option', '', d); o.value = d; if (d === dcHora) o.selected = true; selDc.append(o); });
+    selDc.addEventListener('change', () => { dcHora = selDc.value; dash.render(); });
+    cab.append(el('h3', '', 'Recebido x consolidado por hora'), selDc);
+    const ph = porHora(horas, dia, dcHora);
+    card.append(cab, el('p', 'pt-sub', `Dia ${PT.dDataAno(dia)} · ${dcHora}` + (ph.length ? ` · Pico receb. ${pico(ph, 'rec')} · Pico consol. ${pico(ph, 'con')}` : '')));
+    const gbox = el('div', 'pt-chart short');
+    card.append(gbox);
+    if (!ph.length) gbox.append(el('p', 'pt-note', 'Sem dados por hora para este dia.'));
+    else requestAnimationFrame(() => PT.bars(gbox, {cats: ph.map((x) => String(x.hora).padStart(2, '0') + 'h'), series: [
+      {name: 'Recebido', color: 'var(--pt-c1)', vals: ph.map((x) => x.rec)},
+      {name: 'Consolidado', color: 'var(--pt-c2)', vals: ph.map((x) => x.con)},
+    ], yFmt: (v) => PT.fmt(v, 'int'), aria: 'Recebido e consolidado por hora', catTitle: (i) => String(ph[i].hora).padStart(2, '0') + ':00'}));
+
+    box.replaceChildren(ctl, top, ...DCS.map((dc) => painel(rows, dc, dia, mesIni, horas)), card);
   });
 })();

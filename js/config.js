@@ -2,6 +2,7 @@
 window.PORTAL_FONTES = {
   off_rec: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1906441046&single=true&output=csv', // Portal_Dados → aba OffLoading_Recebido
   off_con: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=762659921&single=true&output=csv', // Portal_Dados → aba OffLoading_Consolidado
+  off_hora: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=628049580&single=true&output=csv', // Portal_Dados → aba OffLoading_Hora
   hc: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1853941927&single=true&output=csv', // Portal_Dados → aba HC
   notracking: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=1930732591&single=true&output=csv', // Portal_Dados → aba NoTracking
   erro_erros: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8rSKM17RwR_x3qPHML-wpvV5aS6ck3dgr_B0HEYB8kfYmBDmXXPupcX6gpn_-1sUTIlXtKdGlwioO/pub?gid=227314504&single=true&output=csv', // Portal_Dados → aba Erro

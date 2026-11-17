@@ -39,6 +39,10 @@ dash.loader('off_rec', {description: 'Transforma a aba Resumo_Portal (Data, DC, 
   const iso = (t) => { const p = String(t).split('/'); return p.length === 3 ? `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}` : String(t); };
   return {data: v.slice(1).filter((x) => x[0] && x[1]).map((x) => ({data: iso(x[0]), dc: x[1], recebido: Number(x[2]) || 0})), columns: ['data', 'dc', 'recebido']};
 }});
+dash.loader('off_hora', {description: 'Aba OffLoading_Hora (Data, DC, Hora, Recebido, Consolidado) em linhas.', fn: ({answer}) => {
+  const v = (answer && answer.values) || [];
+  return {data: v.slice(1).filter((x) => x[0] && x[1] && x[2] !== '').map((x) => ({data: x[0], dc: x[1], hora: Number(x[2]), recebido: Number(x[3]) || 0, consolidado: Number(x[4]) || 0})), columns: ['data', 'dc', 'hora', 'recebido', 'consolidado']};
+}});
 dash.loader('off_con', {description: 'Transforma a aba Resumo_Portal (Data, DC, Consolidado) em linhas, com a data em AAAA-MM-DD.', fn: ({answer}) => {
   const v = (answer && answer.values) || [];
   const iso = (t) => { const p = String(t).split('/'); return p.length === 3 ? `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}` : String(t); };

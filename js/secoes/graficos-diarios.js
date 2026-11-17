@@ -9,20 +9,6 @@
   const dcCell = (r) => { const s = PT.el('span', 'pt-dc'); const i = PT.el('i'); i.style.background = PT.cor(r.dc); s.append(i, document.createTextNode(r.dc)); return s; };
   const pctCell = (f, fmt, meta, maior) => (r) => { const s = PT.el('span', r[f] == null ? '' : ((maior ? r[f] >= meta : r[f] <= meta) ? 'pt-good' : 'pt-bad'), PT.fmt(r[f], fmt)); return s; };
 
-  dash.draw('off-hora-dia', (p) => {
-    const g = dash.data('consolidacao_hora');
-    p.textContent = g.status === 'ok' && g.data.length ? `Dia ${PT.dDataAno(g.data[0].data)} · Nordeste II` : '—';
-  });
-  dash.draw('off-hora-barras', (box) => {
-    const g = dash.data('consolidacao_hora');
-    if (g.status !== 'ok') { box.replaceChildren(PT.el('p', 'pt-note', '—')); return; }
-    const d = g.data;
-    PT.bars(box, {cats: d.map((r) => r.hora.slice(0, 2) + 'h'), series: [
-      {name: 'Recebido', color: 'var(--pt-c1)', vals: d.map((r) => Number(r.recebido) || 0)},
-      {name: 'Consolidado', color: 'var(--pt-c2)', vals: d.map((r) => Number(r.consolidado) || 0)},
-    ], yFmt: (v) => PT.fmt(v, 'int'), aria: 'Recebido e consolidado por hora', catTitle: (i) => d[i].hora});
-  });
-
   dash.draw('noscan-linha', (box) => {
     const d = pronto(box); if (!d) return;
     PT.line(box, {series: serie(d, 'taxa_noscan', (r) => `${PT.fmt(r.sem_registro, 'int')} sem registro`), yFmt: (v) => PT.fmt(v, 'pct2'),
