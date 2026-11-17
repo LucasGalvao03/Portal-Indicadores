@@ -246,6 +246,6 @@ dash.draw('fonte-status', (p) => {
   const item = (nome, ok) => `${nome}: ${ok ? 'lido agora do Google Sheets' : 'números de novembro'}`;
   p.textContent = [item('OffLoading', o.off_rec === 'sheets' && o.off_con === 'sheets'), item('Eficiência HC', o.hc === 'sheets'), item('No Tracking', o.notracking === 'sheets'), item('Erro de Triagem', o.erro === 'sheets'), item('No Scan', o.noscan === 'sheets'), item('Pontualidade', o.pontualidade === 'sheets'), item('Controle de Sacas', o.sacas === 'sheets'), item('Lost', o.lost === 'sheets')].join(' · ') + '.' + (o.resumo === 'calculado' ? ' Visão geral e Ranking: calculados com esses números.' : '');
 });
-new MutationObserver(() => dash.render()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
+new MutationObserver((ms) => { if (ms.some((m) => !m.target.classList.contains('pt-tip'))) dash.render(); }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['hidden']});
 let rw; window.addEventListener('resize', () => { clearTimeout(rw); rw = setTimeout(dash.render, 150); });
 dash.render();
