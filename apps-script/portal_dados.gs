@@ -735,9 +735,13 @@ function recarregarOffLoadingDesde_(dataIso) {
     for (const ss of abrirTodas_(base)) {
       const aba = abaCom_(ss, ['Data_Operacao']), cab = cabecalho_(aba), n = aba.getLastRow() - 1;
       if (n < 1) continue;
-      const datas = aba.getRange(2, cab.indexOf('Data_Operacao') + 1, n, 1).getDisplayValues();
-      const i = datas.findIndex((d) => (paraData_(d[0], ss.getSpreadsheetTimeZone()) || '') >= dataIso);
-      if (i < 0) continue;
+      // a base está em ordem de data: busca binária lendo uma célula por vez (a coluna inteira é grande demais)
+      const col = cab.indexOf('Data_Operacao') + 1, fuso = ss.getSpreadsheetTimeZone();
+      const dataDa = (linha) => paraData_(aba.getRange(linha, col).getDisplayValue(), fuso) || '';
+      let lo = 2, hi = n + 2; // primeira linha com data >= dataIso fica em [lo, hi)
+      while (lo < hi) { const m = Math.floor((lo + hi) / 2); if (dataDa(m) >= dataIso) hi = m; else lo = m + 1; }
+      if (lo > n + 1) continue;
+      const i = lo - 2;
       props.setProperty(`marca|${base}|${ss.getId()}|${aba.getSheetId()}`, String(i + 2 + 200)); // a leitura volta 200 linhas
       console.log(`${base}: relendo a partir da linha ${i + 2}`);
     }
