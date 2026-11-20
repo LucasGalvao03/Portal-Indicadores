@@ -98,6 +98,13 @@ const TAREFAS = {
   sincronizarOffLoading: () => sincronizarOffLoading(),
   sincronizarCarregamento: () => sincronizarCarregamento(),
 };
+// Os cálculos leves gravam por aqui: direto na aba (atualizarLeves) ou guardando para mandar ao banco (sincronizarLeves).
+let COLETA_ = null;
+function salvar_(nomeAba, cabecalho, novas, opcoes) {
+  if (COLETA_) COLETA_.push({nomeAba, cabecalho, novas, opcoes: opcoes || {}});
+  else mesclar_(nomeAba, cabecalho, novas, opcoes);
+}
+
 function atualizarLeves() { // bases pequenas, uma não impede a outra
   [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
 }
@@ -260,7 +267,7 @@ function eficienciaHC_() {
     const datas = lerColuna_(aba, 'DATA'), vol = lerColuna_(aba, 'Volume'), pes = lerColuna_(aba, 'Total de pessoas');
     datas.forEach((d, i) => { const data = paraData_(d, fuso); if (data) linhas.push([data, dc, numero_(vol[i]), numero_(pes[i])]); });
   }
-  mesclar_('HC', ['Data', 'DC', 'Volume', 'Pessoas'], linhas);
+  salvar_('HC', ['Data', 'DC', 'Volume', 'Pessoas'], linhas);
 }
 
 // ---------- No Tracking ----------
@@ -283,8 +290,8 @@ function noTracking_() {
     cont.set(d + '|' + faixa, (cont.get(d + '|' + faixa) || 0) + 1);
   }
   // posição atual (substitui tudo) e histórico diário por DC e faixa
-  mesclar_('NoTracking', ['Data_Ref', 'DC', 'Status', 'Faixa', 'Dias', 'DS'], linhas, {chave: () => 'tudo'});
-  mesclar_('NoTracking_Historico', ['Data_Ref', 'DC', 'Faixa', 'Qtd'], [...cont].map(([k, n]) => [ref, ...k.split('|'), n]), {chave: (r) => String(r[0])});
+  salvar_('NoTracking', ['Data_Ref', 'DC', 'Status', 'Faixa', 'Dias', 'DS'], linhas, {chave: () => 'tudo'});
+  salvar_('NoTracking_Historico', ['Data_Ref', 'DC', 'Faixa', 'Qtd'], [...cont].map(([k, n]) => [ref, ...k.split('|'), n]), {chave: (r) => String(r[0])});
 }
 
 // ---------- Erro de Triagem ----------
@@ -298,7 +305,7 @@ function erroTriagem_() {
     const k = [data, txt_(resp[i]), r, c].join('|');
     g.set(k, (g.get(k) || 0) + 1);
   }
-  mesclar_('Erro', ['Data', 'DC', 'DS_Recebeu', 'DS_Correta', 'Erros'], [...g].map(([k, n]) => [...k.split('|'), n]));
+  salvar_('Erro', ['Data', 'DC', 'DS_Recebeu', 'DS_Correta', 'Erros'], [...g].map(([k, n]) => [...k.split('|'), n]));
 
   const bt = lerBase_('Taxas', ['Data', 'Station', 'Orders Loading'], ['Data']), fuso = bt.fuso;
   const d = bt['Data'], s = bt['Station'], o = bt['Orders Loading'];
@@ -307,7 +314,7 @@ function erroTriagem_() {
     const data = paraData_(d[i] instanceof Date ? d[i] : txt_(d[i]).split(' ')[0], fuso), st = txt_(s[i]);
     if (data && st.startsWith('DC-') && txt_(o[i]) !== '') t.set(data + '|' + st, (t.get(data + '|' + st) || 0) + numero_(o[i]));
   }
-  mesclar_('Erro_Recebidos', ['Data', 'Station', 'Orders Loading'], [...t].map(([k, n]) => [...k.split('|'), n]));
+  salvar_('Erro_Recebidos', ['Data', 'Station', 'Orders Loading'], [...t].map(([k, n]) => [...k.split('|'), n]));
 }
 
 // ---------- Lost ----------
@@ -321,7 +328,7 @@ function lost_() {
     const k = [data, dc, txt_(mot[i]), txt_(scan[i])].join('|');
     const r = g.get(k) || [0, 0]; r[0] += 1; r[1] += numero_(val[i]); g.set(k, r);
   }
-  mesclar_('Lost', ['Data', 'DC', 'Motivo', 'Ultimo_Scan', 'Lost', 'Valor'], [...g].map(([k, [n, v]]) => [...k.split('|'), n, Math.round(v * 100) / 100]));
+  salvar_('Lost', ['Data', 'DC', 'Motivo', 'Ultimo_Scan', 'Lost', 'Valor'], [...g].map(([k, [n, v]]) => [...k.split('|'), n, Math.round(v * 100) / 100]));
 }
 
 // ---------- Pontualidade de Transporte e Controle de Sacas (mesma base de carregamento) ----------
@@ -440,8 +447,8 @@ function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
   const pedidos = [];
   for (let i = 0; i < linhas.length; i += LOTE) {
     pedidos.push({
-      url: `${cfg.url}/rest/v1/${tabela}?on_conflict=${encodeURIComponent(conflito)}`, method: 'post', contentType: 'application/json',
-      headers: Object.assign({Prefer: `resolution=${mesclar ? 'merge' : 'ignore'}-duplicates,return=minimal`}, cfg.headers),
+      url: `${cfg.url}/rest/v1/${tabela}` + (conflito ? `?on_conflict=${encodeURIComponent(conflito)}` : ''), method: 'post', contentType: 'application/json',
+      headers: Object.assign({Prefer: conflito ? `resolution=${mesclar ? 'merge' : 'ignore'}-duplicates,return=minimal` : 'return=minimal'}, cfg.headers),
       payload: JSON.stringify(linhas.slice(i, i + LOTE)), muteHttpExceptions: true,
     });
   }
@@ -556,16 +563,16 @@ function comTrava_(fn) {
   try { fn(); return true; } finally { trava.releaseLock(); }
 }
 // Lê um resumo do banco (de 1000 em 1000) e grava numa aba da Portal_Dados.
-function trazerResumo_(cfg, visao, colunas, aba) {
+function trazerResumo_(cfg, visao, colunas, aba, cabecalhoAba) { // cabecalhoAba: nomes na aba, se diferentes dos do banco
   const linhas = [];
   for (let off = 0; ; off += 1000) {
-    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${visao}?select=*&order=${colunas.slice(0, 3).map((c) => c + '.asc').join(',')}&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
+    const g = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${visao}?select=*&order=${colunas.map((c) => encodeURIComponent(c) + '.asc').join(',')}&limit=1000&offset=${off}`, {headers: cfg.headers, muteHttpExceptions: true});
     if (g.getResponseCode() >= 300) throw new Error(`Supabase ${visao}: ` + g.getContentText().slice(0, 300));
     const lote = JSON.parse(g.getContentText());
     lote.forEach((x) => linhas.push(colunas.map((c) => x[c])));
     if (lote.length < 1000) break;
   }
-  mesclar_(aba, colunas, linhas, {chave: () => 'tudo'});
+  mesclar_(aba, cabecalhoAba || colunas, linhas, {chave: () => 'tudo'});
 }
 function recalcularBanco_(cfg, area) { // area: 'noscan', 'offloading' ou 'carregamento' (só os resumos dela)
   const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/atualizar_resumos`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: JSON.stringify({area}), muteHttpExceptions: true});
@@ -662,6 +669,40 @@ function recarregarOffLoading() {
   const props = PropertiesService.getScriptProperties();
   props.getKeys().filter((k) => k.startsWith('marca|Descarregamento|') || k.startsWith('marca|Consolidacao|')).forEach((k) => props.deleteProperty(k));
   sincronizarOffLoading();
+}
+
+// ---------- Indicadores leves no banco (HC, No Tracking, Erro de Triagem e Lost) ----------
+const TABELAS_LEVES = {HC: 'hc', NoTracking: 'no_tracking', NoTracking_Historico: 'no_tracking_historico', Erro: 'erro', Erro_Recebidos: 'erro_recebidos', Lost: 'lost'};
+const nomeBanco_ = (c) => c.replace(/ /g, '_'); // 'Orders Loading' → 'Orders_Loading'
+function apagarBanco_(cfg, tabela, filtro) {
+  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${tabela}?${filtro}`, {method: 'delete', headers: Object.assign({Prefer: 'return=minimal'}, cfg.headers), muteHttpExceptions: true});
+  if (r.getResponseCode() >= 300) throw new Error(`Supabase apagar ${tabela}: ${r.getContentText().slice(0, 300)}`);
+}
+function sincronizarLeves() {
+  const cfg = supa_();
+  if (!cfg) return;
+  const props = PropertiesService.getScriptProperties();
+  const sufixo = props.getProperty('banco_leves_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  COLETA_ = [];
+  try {
+    [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
+  } finally {
+    var coletas = COLETA_; COLETA_ = null;
+  }
+  const q = encodeURIComponent;
+  coletas.forEach(({nomeAba, cabecalho, novas, opcoes}) => {
+    const tabela = TABELAS_LEVES[nomeAba], col = cabecalho.map(nomeBanco_), c0 = q(col[0]);
+    // troca no banco o mesmo pedaço que a aba trocaria: o mês (padrão), tudo, ou a data de referência
+    if (opcoes.chave && opcoes.chave(novas[0] || []) === 'tudo') apagarBanco_(cfg, tabela, `${q(col[1])}=not.is.null`);
+    else if (opcoes.chave) [...new Set(novas.map((r) => String(r[0])))].forEach((d) => apagarBanco_(cfg, tabela, `${c0}=eq.${d}`));
+    else [...new Set(novas.map((r) => String(r[0]).slice(0, 7)))].forEach((m) => {
+      const [a, mm] = m.split('-').map(Number), prox = mm === 12 ? `${a + 1}-01` : `${a}-${String(mm + 1).padStart(2, '0')}`;
+      apagarBanco_(cfg, tabela, `${c0}=gte.${m}-01&${c0}=lt.${prox}-01`);
+    });
+    const objs = novas.map((r) => Object.fromEntries(col.map((c, i) => [c, r[i] === '' ? null : r[i]])));
+    enviarBanco_(cfg, tabela, objs, null, false);
+  });
+  comTrava_(() => coletas.forEach(({nomeAba, cabecalho}) => trazerResumo_(cfg, TABELAS_LEVES[nomeAba], cabecalho.map(nomeBanco_), nomeAba + sufixo, cabecalho)));
 }
 
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
