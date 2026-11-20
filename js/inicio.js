@@ -54,6 +54,7 @@
   if (F.hc) {
     try {
       const hc = (await lerCSV(F.hc)).map((r) => ({data: iso(r.Data), dc: r.DC, volume_hc: Number(r.Volume) || 0, pessoas: Number(r.Pessoas) || 0}));
+      window.PORTAL_HC = hc; // para o painel no layout do Excel
       const ult = hc.filter((r) => r.volume_hc > 0).map((r) => r.data).sort().pop();
       if (ult) {
         const d0 = new Date(ult.slice(0, 8) + '01T00:00:00Z');

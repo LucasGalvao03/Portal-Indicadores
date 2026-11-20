@@ -244,3 +244,38 @@ html, body { margin: 0; background: var(--color-bg); }
 .er-tbl td.er-rec { font-weight: var(--cds-font-weight-medium); color: var(--cor); vertical-align: middle; }
 @media (prefers-color-scheme: dark) { .er-tbl td.er-rec { color: color-mix(in srgb, var(--cor) 55%, white); } }
 .er-tbl .er-total td { font-weight: var(--cds-font-weight-medium); background: color-mix(in srgb, var(--cor) 15%, transparent); border-top: 2px solid var(--cor); }
+/* ===== Eficiência HC no layout do Excel ===== */
+:root { --hc-azul: #2f5597; --hc-escuro: #1f3864; --hc-claro: #d9e2f3; }
+.hc-filtros { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: flex-end; }
+.hc-data { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--color-fg-muted); }
+.hc-data input, .hc-data select { color-scheme: light dark; }
+.hc-ult { margin-left: auto; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); align-self: center; }
+.hc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); border-radius: var(--cds-radius); overflow: hidden; }
+.hc-card { text-align: center; }
+.hc-card-h { background: var(--hc-azul); color: #fff; padding: 6px; font-weight: var(--cds-font-weight-medium); font-size: var(--cds-font-size-caption); }
+.hc-card-v { background: var(--hc-claro); color: var(--hc-escuro); font-size: 32px; font-weight: 700; padding: 6px; font-variant-numeric: tabular-nums; }
+@media (prefers-color-scheme: dark) { .hc-card-v { background: #24324d; color: #fff; } }
+.hc-topo { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--cds-gap-md); }
+@container (max-width: 1000px) { .hc-topo { grid-template-columns: minmax(0, 1fr); } }
+.hc-tbl { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.hc-tbl th { background: var(--hc-escuro); color: #fff; padding: 6px; font-weight: var(--cds-font-weight-medium); text-align: center; border: 1px solid color-mix(in srgb, var(--hc-escuro) 60%, white); }
+.hc-tbl td { padding: 5px 8px; border-bottom: 1px solid var(--color-border-line); text-align: center; }
+.hc-tbl td.num { text-align: right; }
+.hc-tbl .hc-dc { font-weight: var(--cds-font-weight-medium); text-align: left; }
+.hc-tbl .hc-total td { background: color-mix(in srgb, var(--hc-azul) 22%, transparent); font-weight: 700; }
+.hc-barra { position: relative; min-width: 110px; }
+.hc-barra span { position: absolute; left: 6px; top: 4px; bottom: 4px; border-radius: 2px; background: linear-gradient(90deg, #4472c4, color-mix(in srgb, #4472c4 25%, transparent)); }
+.hc-barra b { position: relative; }
+.pt-chart .hc-rot { fill: #fff; font-size: 13px; font-weight: 600; font-family: var(--font-anthropic-sans); }
+.hc-dia-cab { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--cds-gap-md); margin-bottom: var(--cds-pad-sm); }
+.hc-dia-cab h3 { margin: 0; }
+.hc-st { font-weight: var(--cds-font-weight-medium); }
+.hc-st.hc-meta { color: #f2c94c; }
+.hc-resumos { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+.hc-faixa { background: var(--hc-escuro); color: #fff; font-weight: var(--cds-font-weight-medium); padding: 8px 12px; border-radius: 8px; }
+.hc-tbl-res { font-size: 12px; }
+.hc-tbl-res th { padding: 4px; }
+.hc-tbl-res td { padding: 3px 6px; }
+.hc-tbl .hc-prod { font-weight: 700; background: color-mix(in srgb, var(--color-fg) 4%, transparent); }
+.hc-tbl .hc-ne { background: color-mix(in srgb, var(--hc-azul) 18%, transparent); }
+.hc-tbl th.hc-ne { background: var(--hc-azul); }

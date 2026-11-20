@@ -6,7 +6,7 @@
 <title>Portal de Indicadores · iMile Nordeste II</title>
 <link rel="icon" href="img/logo-imile.png">
 
-<link rel="stylesheet" href="css/estilo.css?v=202611201945">
+<link rel="stylesheet" href="css/estilo.css?v=202611201958">
 </head>
 <body>
 <div id="dash-root">
@@ -142,19 +142,7 @@
         <p>Volume recebido dividido pela quantidade de pessoas no dia (pacotes por pessoa). Metas: PI2 800 · CE1 e PI3 850. Desafios: PI2 850 · CE1 e PI3 900.</p>
       </div>
     </div>
-    <div class="pt-card" id="hc-grafico">
-      <h3>Pacotes por pessoa por dia</h3>
-      <div class="pt-chart" data-draw="hc-linha" data-source="diario"></div>
-    </div>
-    <div class="pt-card" id="hc-tabela">
-      <h3>Acumulado do mês por DC</h3>
-      <div class="pt-tbl-wrap">
-        <table class="pt-tbl" data-source="diario_total" data-row-key="dc">
-          <thead><tr><th data-field="dc">DC</th><th class="num" data-field="volume_hc">Volume recebido</th><th class="num" data-field="dias_hc">Dias com operação</th><th class="num" data-field="pessoas">Pessoas (HC-dia)</th><th class="num" data-field="produtividade">Pacotes por pessoa</th><th>Meta</th></tr></thead>
-          <tbody data-draw="hc-linhas"></tbody>
-        </table>
-      </div>
-    </div>
+    <div id="hc-painel" class="off-painel" data-draw="hc-painel" data-source="diario"></div>
   </section>
 
   <!-- ===================== PONTUALIDADE ===================== -->
@@ -277,25 +265,26 @@
 
 </div>
 
-<script src="vendor/d3.min.js?v=202611201945"></script>
-<script src="js/config.js?v=202611201945"></script>
-<script src="js/motor.js?v=202611201945"></script>
-<script src="js/fontes-e-calculos.js?v=202611201945"></script>
-<script src="js/utils.js?v=202611201945"></script>
-<script src="js/abas.js?v=202611201945"></script>
-<script src="js/desenhos-genericos.js?v=202611201945"></script>
-<script src="js/secoes/visao-geral.js?v=202611201945"></script>
-<script src="js/secoes/ranking.js?v=202611201945"></script>
-<script src="js/secoes/graficos-diarios.js?v=202611201945"></script>
-<script src="js/secoes/offloading.js?v=202611201945"></script>
-<script src="js/secoes/noscan.js?v=202611201945"></script>
-<script src="js/secoes/notracking-excel.js?v=202611201945"></script>
-<script src="js/secoes/erro-excel.js?v=202611201945"></script>
-<script src="js/secoes/no-tracking.js?v=202611201945"></script>
-<script src="js/secoes/lost.js?v=202611201945"></script>
-<script src="js/secoes/controle-sacas.js?v=202611201945"></script>
-<script src="dados/novembro.js?v=202611201945"></script>
-<script src="js/resumo-ranking.js?v=202611201945"></script>
-<script src="js/inicio.js?v=202611201945"></script>
+<script src="vendor/d3.min.js?v=202611201958"></script>
+<script src="js/config.js?v=202611201958"></script>
+<script src="js/motor.js?v=202611201958"></script>
+<script src="js/fontes-e-calculos.js?v=202611201958"></script>
+<script src="js/utils.js?v=202611201958"></script>
+<script src="js/abas.js?v=202611201958"></script>
+<script src="js/desenhos-genericos.js?v=202611201958"></script>
+<script src="js/secoes/visao-geral.js?v=202611201958"></script>
+<script src="js/secoes/ranking.js?v=202611201958"></script>
+<script src="js/secoes/graficos-diarios.js?v=202611201958"></script>
+<script src="js/secoes/offloading.js?v=202611201958"></script>
+<script src="js/secoes/noscan.js?v=202611201958"></script>
+<script src="js/secoes/notracking-excel.js?v=202611201958"></script>
+<script src="js/secoes/erro-excel.js?v=202611201958"></script>
+<script src="js/secoes/hc-excel.js?v=202611201958"></script>
+<script src="js/secoes/no-tracking.js?v=202611201958"></script>
+<script src="js/secoes/lost.js?v=202611201958"></script>
+<script src="js/secoes/controle-sacas.js?v=202611201958"></script>
+<script src="dados/novembro.js?v=202611201958"></script>
+<script src="js/resumo-ranking.js?v=202611201958"></script>
+<script src="js/inicio.js?v=202611201958"></script>
 </body>
 </html>
