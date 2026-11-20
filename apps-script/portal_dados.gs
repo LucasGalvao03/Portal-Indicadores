@@ -483,7 +483,8 @@ function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
  * ignoradas pelo banco). Se a aba encolheu (dados colados de novo), recomeça do início.
  * Devolve as colunas + `marcas` para gravar depois que o envio der certo.
  */
-function lerNovas_(base, colunas, exibidas, limite) {
+function lerNovas_(base, colunas, exibidas, limite, obrigatorias) { // obrigatorias: colunas que toda linha pronta tem
+  obrigatorias = obrigatorias || [colunas[0]];
   const props = PropertiesService.getScriptProperties();
   const out = {fuso: null, marcas: {}, completo: true, origem: []};
   colunas.forEach((c) => { out[c] = []; });
@@ -495,14 +496,21 @@ function lerNovas_(base, colunas, exibidas, limite) {
     const ini = marca > ultima ? 2 : Math.max(2, marca - 200);
     const fim = Math.min(ultima, ini + limite - 1);
     if (fim < ultima) out.completo = false;
-    out.marcas[chave] = fim;
+    out.marcas[chave] = marca; // só avança depois de ver quais linhas já estão prontas
     if (fim < ini) continue;
     for (let l = ini; l <= fim; l++) out.origem.push(`${ss.getId()}:${aba.getSheetId()}:${l}`);
+    const lidas = {};
     colunas.forEach((c) => {
       const r = aba.getRange(ini, cab.indexOf(c) + 1, fim - ini + 1, 1);
-      const v = exibidas.includes(c) ? r.getDisplayValues() : r.getValues();
-      for (let i = 0; i < v.length; i++) out[c].push(v[i][0]);
+      lidas[c] = (exibidas.includes(c) ? r.getDisplayValues() : r.getValues()).map((x) => x[0]);
+      lidas[c].forEach((x) => out[c].push(x));
     });
+    // A marca para na última linha preenchida: linhas do fim que ainda estão em branco (base sendo colada
+    // ou atualizada naquele momento) são lidas de novo na próxima rodada, em vez de ficarem para trás.
+    let ultimaPronta = -1;
+    for (let i = fim - ini; i >= 0; i--) if (obrigatorias.every((c) => txt_(lidas[c][i]) !== '')) { ultimaPronta = i; break; }
+    if (ultimaPronta >= 0) out.marcas[chave] = ini + ultimaPronta;
+    if (ini + ultimaPronta < fim) out.completo = false;
   }
   return out;
 }
@@ -520,7 +528,7 @@ function sincronizarBanco() {
   enviarBanco_(cfg, 'mapa_ds_dc', [...mapa].map(([ds, dc]) => ({ds, dc})), 'ds', true);
 
   // recebimento na DS (mesmos filtros do No Scan)
-  const br = lerNovas_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time'], LIMITE);
+  const br = lerNovas_('Recebimento_DS', ['Scan Time', 'Waybill Number', 'Scan Station', 'Scan State Name'], ['Scan Time'], LIMITE, ['Scan Time', 'Waybill Number']);
   const rec = [];
   br['Waybill Number'].forEach((w, i) => {
     const wb = norm(w), st = txt_(br['Scan Station'][i]), uf = txt_(br['Scan State Name'][i]), hora = isoHora_(br['Scan Time'][i]);
@@ -531,7 +539,7 @@ function sincronizarBanco() {
   Object.entries(br.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
 
   // expedição do DC (só o waybill e a data)
-  const be = lerNovas_('Expedicao_DC', ['Waybill No.', 'Scan Time'], ['Scan Time'], LIMITE);
+  const be = lerNovas_('Expedicao_DC', ['Waybill No.', 'Scan Time'], ['Scan Time'], LIMITE, ['Waybill No.']);
   const exp = [];
   be['Waybill No.'].forEach((w, i) => {
     const wb = norm(w), hora = isoHora_(be['Scan Time'][i]);
@@ -590,7 +598,7 @@ function sincronizarOffLoading() {
   [['Descarregamento', 'Estacao_Descarregamento', 'Hora_Bipe', 'offloading_recebido'],
    ['Consolidacao', 'Scan Station', 'Scan Time', 'offloading_consolidado']].forEach(([base, colunaDC, colunaHora, tabela]) => {
     if (Date.now() - inicio > 150000) { completo = false; return; } // sem tempo: fica para a próxima rodada
-    const b = lerNovas_(base, ['Data_Operacao', colunaDC, colunaHora], ['Data_Operacao', colunaHora], LIMITE);
+    const b = lerNovas_(base, ['Data_Operacao', colunaDC, colunaHora], ['Data_Operacao', colunaHora], LIMITE, ['Data_Operacao', colunaDC]);
     const linhas = [];
     b['Data_Operacao'].forEach((d, i) => {
       const data = paraData_(d, b.fuso), dc = txt_(b[colunaDC][i]), h = isoHora_(b[colunaHora][i]);
@@ -621,7 +629,7 @@ function sincronizarCarregamento() {
     if (Date.now() - inicio > 100000) { completo = false; return; } // sem tempo: fica para a próxima rodada
     const base = 'Carregamento_' + dc.slice(3);
     // leituras novas: rotas × veículos, rotas válidas e sacas enviadas (sem repetir)
-    const b = lerNovas_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time'], LIMITE);
+    const b = lerNovas_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time'], LIMITE, ['Waybill No.', 'Scan Time']);
     const rv = new Map(), ok = new Map(), sc = new Map();
     b['Data'].forEach((d, i) => {
       const scan = b['Scan Time'][i];
@@ -717,6 +725,24 @@ function sincronizarLeves() {
   });
   if (importar) props.setProperty('leves_importado', 'sim');
   comTrava_(() => coletas.forEach(({nomeAba, cabecalho}) => trazerResumo_(cfg, TABELAS_LEVES[nomeAba], cabecalho.map(nomeBanco_), nomeAba + sufixo, cabecalho)));
+}
+
+// Manual, uma vez (20/11): relê o OffLoading a partir de 17/11, onde faltaram linhas.
+function recarregarOffLoadingDesde17() { recarregarOffLoadingDesde_('2026-11-17'); }
+function recarregarOffLoadingDesde_(dataIso) {
+  const props = PropertiesService.getScriptProperties();
+  ['Descarregamento', 'Consolidacao'].forEach((base) => {
+    for (const ss of abrirTodas_(base)) {
+      const aba = abaCom_(ss, ['Data_Operacao']), cab = cabecalho_(aba), n = aba.getLastRow() - 1;
+      if (n < 1) continue;
+      const datas = aba.getRange(2, cab.indexOf('Data_Operacao') + 1, n, 1).getDisplayValues();
+      const i = datas.findIndex((d) => (paraData_(d[0], ss.getSpreadsheetTimeZone()) || '') >= dataIso);
+      if (i < 0) continue;
+      props.setProperty(`marca|${base}|${ss.getId()}|${aba.getSheetId()}`, String(i + 2 + 200)); // a leitura volta 200 linhas
+      console.log(`${base}: relendo a partir da linha ${i + 2}`);
+    }
+  });
+  sincronizarOffLoading();
 }
 
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
