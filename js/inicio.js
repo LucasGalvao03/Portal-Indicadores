@@ -78,7 +78,7 @@
   // --- No Tracking ao vivo ---
   if (F.notracking) {
     try {
-      const nt = (await lerCSV(F.notracking)).filter((r) => r.DC).map((r) => ({dc: r.DC, status: r.Status, faixa: r.Faixa, dias: Number(r.Dias), ds: r.DS, tipo: r.Tipo || '(Sem insucesso)', valor: Number(String(r.Valor || '0').replace(/\./g, '').replace(',', '.')) || 0, data_ref: iso(r.Data_Ref)}));
+      const nt = (await lerCSV(F.notracking)).filter((r) => r.DC).map((r) => ({dc: r.DC, status: r.Status, faixa: r.Faixa, dias: Number(r.Dias), ds: r.DS, tipo: r.Tipo || '(Sem insucesso)', etiqueta: r.Etiqueta || '', valor: Number(String(r.Valor || '0').replace(/\./g, '').replace(',', '.')) || 0, data_ref: iso(r.Data_Ref)}));
       st.notracking = {status: 'ok', data: nt};
       PORTAL_ORIGEM.notracking = 'sheets';
     } catch (e) { console.warn('Sheets indisponível para No Tracking', e); }

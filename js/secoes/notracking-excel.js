@@ -132,9 +132,9 @@
     const baixar = el('button', 'nt-baixar', `⬇ Baixar base filtrada (${PT.fmt(rows.length, 'int')} pacotes)`);
     baixar.type = 'button';
     baixar.addEventListener('click', () => {
-      const cab = ['Data de referência', 'DC', 'Último status', 'Faixa', 'Dias sem rastreio', 'DS destino', 'Tipo de insucesso', 'Valor R$'];
+      const cab = ['Número da Etiqueta', 'Data de referência', 'DC', 'Último status', 'Faixa', 'Dias sem rastreio', 'DS destino', 'Tipo de insucesso', 'Valor R$'];
       const q = (v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-      const linhas = rows.map((r) => [PT.dDataAno(r.data_ref), r.dc, r.status, ROT_FAIXA[r.faixa] || r.faixa, r.dias, r.ds, r.tipo, String(r.valor.toFixed(2)).replace('.', ',')]);
+      const linhas = rows.map((r) => [r.etiqueta ? `="${r.etiqueta}"` : '', PT.dDataAno(r.data_ref), r.dc, r.status, ROT_FAIXA[r.faixa] || r.faixa, r.dias, r.ds, r.tipo, String(r.valor.toFixed(2)).replace('.', ',')]);
       const csv = '\ufeff' + [cab, ...linhas].map((l) => l.map(q).join(';')).join('\r\n'); // ; e BOM: o Excel em português abre direto
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
