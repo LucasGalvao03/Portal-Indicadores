@@ -175,3 +175,22 @@ html, body { margin: 0; background: var(--color-bg); }
 .off-hora-t.con { color: var(--off-teal); }
 @media (prefers-color-scheme: light) { .off-hora-t { color: var(--imile-azul); } .off-hora-t.con { color: #1aa3b3; } }
 .off-kpi-v.menor { font-size: 21px; white-space: nowrap; }
+/* ===== No Scan no layout do Excel ===== */
+.ns-tops { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.ns-dcs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--cds-gap-md); }
+.ns-dc { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); overflow: hidden; padding-bottom: var(--cds-pad-sm); }
+.ns-dc-h { background: var(--imile-azul); color: #fff; text-align: center; font-weight: var(--cds-font-weight-medium); padding: var(--cds-pad-sm); }
+.ns-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cds-gap-sm); padding: var(--cds-pad-sm); }
+.ns-kpi { text-align: center; border-radius: 8px; padding: var(--cds-pad-sm) 4px; background: color-mix(in srgb, var(--imile-azul) 6%, transparent); display: flex; flex-direction: column; gap: 2px; }
+.ns-kpi-h { font-size: 11px; color: var(--color-fg-muted); }
+.ns-kpi-v { font-size: 26px; font-weight: var(--cds-font-weight-medium); color: var(--imile-azul); font-variant-numeric: tabular-nums; line-height: 1.2; }
+@media (prefers-color-scheme: dark) { .ns-kpi-v { color: #8fb0ff; } }
+.ns-var { font-size: 11px; font-weight: var(--cds-font-weight-medium); }
+.ns-g-t { text-align: center; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); margin-top: var(--cds-pad-sm); }
+.ns-dc .pt-chart { padding: 0; margin: 0 var(--cds-pad-sm); }
+.ns-eixo text { font-size: 10px; }
+.ns-leg { display: flex; justify-content: center; gap: var(--cds-gap-md); font-size: 11px; color: var(--color-fg-muted); }
+.ns-leg span::before { content: ""; display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2.4px solid var(--pt-c1); }
+.ns-leg .l2::before { border-top: 1.6px dashed var(--off-teal); }
+.pt-chart .ns-ds { font-size: 12px; fill: var(--color-fg); font-family: var(--font-anthropic-sans); }
+.pt-chart .ns-dcl { font-size: 11px; fill: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); font-family: var(--font-anthropic-sans); }

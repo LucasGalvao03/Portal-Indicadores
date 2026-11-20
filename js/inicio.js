@@ -113,7 +113,8 @@
   // --- No Scan ao vivo: Resumo_Portal gerado pelo script (recebidos e sem registro por dia, DC e DS) ---
   if (F.noscan) {
     try {
-      const ns = (await lerCSV(F.noscan)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), rec: Number(r.Recebidos) || 0, sem: Number(r.Sem_Registro) || 0}));
+      const ns = (await lerCSV(F.noscan)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), ds: (r.DS || '').trim(), rec: Number(r.Recebidos) || 0, sem: Number(r.Sem_Registro) || 0}));
+      window.PORTAL_NOSCAN = ns; // por DS, para o painel no layout do Excel
       const ult = ns.map((r) => r.data).sort().pop();
       if (ult) {
         const d0 = new Date(ult.slice(0, 8) + '01T00:00:00Z');

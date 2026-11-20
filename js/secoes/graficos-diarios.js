@@ -9,16 +9,6 @@
   const dcCell = (r) => { const s = PT.el('span', 'pt-dc'); const i = PT.el('i'); i.style.background = PT.cor(r.dc); s.append(i, document.createTextNode(r.dc)); return s; };
   const pctCell = (f, fmt, meta, maior) => (r) => { const s = PT.el('span', r[f] == null ? '' : ((maior ? r[f] >= meta : r[f] <= meta) ? 'pt-good' : 'pt-bad'), PT.fmt(r[f], fmt)); return s; };
 
-  dash.draw('noscan-linha', (box) => {
-    const d = pronto(box); if (!d) return;
-    PT.line(box, {series: serie(d, 'taxa_noscan', (r) => `${PT.fmt(r.sem_registro, 'int')} sem registro`), yFmt: (v) => PT.fmt(v, 'pct2'),
-      refs: [{y: 0.01, label: 'Meta 1%'}, {y: 0.007, label: 'Desafio 0,7%'}], aria: 'Taxa de No Scan diária por DC'});
-  });
-  dash.draw('noscan-linhas', (tb) => {
-    const t = tot(); if (!t) { tb.replaceChildren(); return; }
-    PT.rows(tb, t, [{node: dcCell}, {f: 'recebidos_scan', fmt: 'int', cls: 'num'}, {f: 'sem_registro', fmt: 'int', cls: 'num'}, {node: pctCell('taxa_noscan', 'pct2', 0.01, false), cls: 'num'}], (r) => r.dc);
-  });
-
   const CLIP_ERRO = 0.005;
   dash.draw('erro-linha', (box) => {
     const d = pronto(box); if (!d) return;
