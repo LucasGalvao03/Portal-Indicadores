@@ -297,15 +297,17 @@ function noTracking_() {
 
 // ---------- Erro de Triagem ----------
 function erroTriagem_() {
-  const be = lerBase_('Erro_Triagem', ['Waybill', 'Scan Date', 'Station Received', 'DS Delivery Station', 'Responsible'], ['Scan Date']);
-  const wb = be['Waybill'], sd = be['Scan Date'], rec = be['Station Received'], cor = be['DS Delivery Station'], resp = be['Responsible'];
-  const g = new Map();
+  const be = lerBase_('Erro_Triagem', ['Waybill', 'Scan Date', 'Station Received', 'DS Delivery Station', 'Responsible', 'Client Name'], ['Scan Date']);
+  const wb = be['Waybill'], sd = be['Scan Date'], rec = be['Station Received'], cor = be['DS Delivery Station'], resp = be['Responsible'], cli = be['Client Name'];
+  const g = new Map(), lista = [];
   for (let i = 0; i < wb.length; i++) {
     const r = txt_(rec[i]).toUpperCase(), c = txt_(cor[i]).toUpperCase(), data = paraData_(sd[i], '', true); // Scan Date vem como mês/dia/ano
     if (!txt_(wb[i]) || !r.startsWith('DS') || r === c || !data || !DCS.includes(txt_(resp[i]))) continue;
     const k = [data, txt_(resp[i]), r, c].join('|');
     g.set(k, (g.get(k) || 0) + 1);
+    lista.push([data, txt_(resp[i]), txt_(typeof wb[i] === 'number' ? wb[i].toFixed(0) : wb[i]), r, c, txt_(cli[i])]);
   }
+  salvar_('Erro_Lista', ['Data', 'DC', 'Waybill', 'DS_Recebeu', 'DS_Correta', 'Cliente'], lista); // um pacote por linha, para baixar no site
   salvar_('Erro', ['Data', 'DC', 'DS_Recebeu', 'DS_Correta', 'Erros'], [...g].map(([k, n]) => [...k.split('|'), n]));
 
   const bt = lerBase_('Taxas', ['Data', 'Station', 'Orders Loading'], ['Data']), fuso = bt.fuso;
@@ -681,7 +683,7 @@ function recarregarOffLoading() {
 }
 
 // ---------- Indicadores leves no banco (HC, No Tracking, Erro de Triagem e Lost) ----------
-const TABELAS_LEVES = {HC: 'hc', NoTracking: 'no_tracking', NoTracking_Historico: 'no_tracking_historico', Erro: 'erro', Erro_Recebidos: 'erro_recebidos', Lost: 'lost'};
+const TABELAS_LEVES = {HC: 'hc', NoTracking: 'no_tracking', NoTracking_Historico: 'no_tracking_historico', Erro: 'erro', Erro_Lista: 'erro_lista', Erro_Recebidos: 'erro_recebidos', Lost: 'lost'};
 const nomeBanco_ = (c) => c.replace(/ /g, '_'); // 'Orders Loading' → 'Orders_Loading'
 function apagarBanco_(cfg, tabela, filtro) {
   const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${tabela}?${filtro}`, {method: 'delete', headers: Object.assign({Prefer: 'return=minimal'}, cfg.headers), muteHttpExceptions: true});

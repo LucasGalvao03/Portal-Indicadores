@@ -89,6 +89,8 @@
       const [er, rc] = await Promise.all([lerCSV(F.erro_erros), lerCSV(F.erro_receb)]);
       const erros = er.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), ds_recebeu: r.DS_Recebeu, ds_destino: r.DS_Correta, n: Number(r.Erros) || 0}));
       const receb = rc.filter((r) => r.Data && /^DC-/.test((r.Station || '').trim())).map((r) => ({data: iso(r.Data), dc: r.Station.trim(), n: Number(String(r['Orders Loading'] || '').replace(/[.\s]/g, ''))})).filter((r) => r.n >= 0 && !Number.isNaN(r.n));
+      window.PORTAL_ERRO = {erros, receb}; // para o painel no layout do Excel
+      if (F.erro_pacotes) lerCSV(F.erro_pacotes).then((l) => { window.PORTAL_ERRO.pacotes = l.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), waybill: r.Waybill, ds_recebeu: r.DS_Recebeu, ds_destino: r.DS_Correta, cliente: r.Cliente})); }).catch(() => {});
       const ult = [...erros.map((r) => r.data), ...receb.map((r) => r.data)].sort().pop();
       if (ult) {
         const d0 = new Date(ult.slice(0, 8) + '01T00:00:00Z');
