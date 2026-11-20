@@ -6,7 +6,7 @@
 <title>Portal de Indicadores · iMile Nordeste II</title>
 <link rel="icon" href="img/logo-imile.png">
 
-<link rel="stylesheet" href="css/estilo.css?v=202611201914">
+<link rel="stylesheet" href="css/estilo.css?v=202611201921">
 </head>
 <body>
 <div id="dash-root">
@@ -120,41 +120,7 @@
       </div>
       <p class="pt-note" data-draw="nt-ref" data-source="notracking">—</p>
     </div>
-    <div class="pt-grid3" id="nt-cards">
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-PI2">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>4+ dias</span><b data-draw="val" data-source="nt_dc" data-field="mais4" data-where="dc=DC-PI2" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Total parado</span><b data-draw="val" data-source="nt_dc" data-field="total" data-where="dc=DC-PI2" data-fmt="int">—</b></div>
-        </div>
-        <div class="pt-stack" data-draw="nt-stack" data-dc="DC-PI2" data-source="nt_dc"></div>
-      </div>
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-CE1">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>4+ dias</span><b data-draw="val" data-source="nt_dc" data-field="mais4" data-where="dc=DC-CE1" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Total parado</span><b data-draw="val" data-source="nt_dc" data-field="total" data-where="dc=DC-CE1" data-fmt="int">—</b></div>
-        </div>
-        <div class="pt-stack" data-draw="nt-stack" data-dc="DC-CE1" data-source="nt_dc"></div>
-      </div>
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-PI3">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>4+ dias</span><b data-draw="val" data-source="nt_dc" data-field="mais4" data-where="dc=DC-PI3" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Total parado</span><b data-draw="val" data-source="nt_dc" data-field="total" data-where="dc=DC-PI3" data-fmt="int">—</b></div>
-        </div>
-        <div class="pt-stack" data-draw="nt-stack" data-dc="DC-PI3" data-source="nt_dc"></div>
-      </div>
-    </div>
-    <div class="pt-legend" id="nt-legenda" data-draw="nt-legenda"></div>
-    <div class="pt-grid2">
-      <div class="pt-card" id="nt-status">
-        <h3>Último status dos pacotes com 4+ dias</h3>
-        <div class="pt-hbars" data-draw="nt-status-barras" data-source="notracking"></div>
-      </div>
-      <div class="pt-card" id="nt-ds">
-        <h3>DSs de destino com mais pacotes 4+ dias</h3>
-        <div class="pt-hbars" data-draw="nt-ds-barras" data-source="notracking"></div>
-      </div>
-    </div>
-    
+    <div id="nt-painel" class="off-painel" data-draw="nt-painel" data-source="notracking"></div>
   </section>
 
   <!-- ===================== ERRO DE TRIAGEM ===================== -->
@@ -332,23 +298,24 @@
 
 </div>
 
-<script src="vendor/d3.min.js?v=202611201914"></script>
-<script src="js/config.js?v=202611201914"></script>
-<script src="js/motor.js?v=202611201914"></script>
-<script src="js/fontes-e-calculos.js?v=202611201914"></script>
-<script src="js/utils.js?v=202611201914"></script>
-<script src="js/abas.js?v=202611201914"></script>
-<script src="js/desenhos-genericos.js?v=202611201914"></script>
-<script src="js/secoes/visao-geral.js?v=202611201914"></script>
-<script src="js/secoes/ranking.js?v=202611201914"></script>
-<script src="js/secoes/graficos-diarios.js?v=202611201914"></script>
-<script src="js/secoes/offloading.js?v=202611201914"></script>
-<script src="js/secoes/noscan.js?v=202611201914"></script>
-<script src="js/secoes/no-tracking.js?v=202611201914"></script>
-<script src="js/secoes/lost.js?v=202611201914"></script>
-<script src="js/secoes/controle-sacas.js?v=202611201914"></script>
-<script src="dados/novembro.js?v=202611201914"></script>
-<script src="js/resumo-ranking.js?v=202611201914"></script>
-<script src="js/inicio.js?v=202611201914"></script>
+<script src="vendor/d3.min.js?v=202611201921"></script>
+<script src="js/config.js?v=202611201921"></script>
+<script src="js/motor.js?v=202611201921"></script>
+<script src="js/fontes-e-calculos.js?v=202611201921"></script>
+<script src="js/utils.js?v=202611201921"></script>
+<script src="js/abas.js?v=202611201921"></script>
+<script src="js/desenhos-genericos.js?v=202611201921"></script>
+<script src="js/secoes/visao-geral.js?v=202611201921"></script>
+<script src="js/secoes/ranking.js?v=202611201921"></script>
+<script src="js/secoes/graficos-diarios.js?v=202611201921"></script>
+<script src="js/secoes/offloading.js?v=202611201921"></script>
+<script src="js/secoes/noscan.js?v=202611201921"></script>
+<script src="js/secoes/notracking-excel.js?v=202611201921"></script>
+<script src="js/secoes/no-tracking.js?v=202611201921"></script>
+<script src="js/secoes/lost.js?v=202611201921"></script>
+<script src="js/secoes/controle-sacas.js?v=202611201921"></script>
+<script src="dados/novembro.js?v=202611201921"></script>
+<script src="js/resumo-ranking.js?v=202611201921"></script>
+<script src="js/inicio.js?v=202611201921"></script>
 </body>
 </html>

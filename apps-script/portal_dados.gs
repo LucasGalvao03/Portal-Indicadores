@@ -273,8 +273,8 @@ function eficienciaHC_() {
 
 // ---------- No Tracking ----------
 function noTracking_() {
-  const b = lerBase_('No_Tracking', ['Último status', 'Horário da última leitura', 'Última estação de leitura', 'Último tipo de insucesso', 'Station'], ['Horário da última leitura']), fuso = b.fuso;
-  const st = b['Último status'], hr = b['Horário da última leitura'], dc = b['Última estação de leitura'], ins = b['Último tipo de insucesso'], ds = b['Station'];
+  const b = lerBase_('No_Tracking', ['Último status', 'Horário da última leitura', 'Última estação de leitura', 'Último tipo de insucesso', 'Station', 'Valor Declarado (Enviado)'], ['Horário da última leitura']), fuso = b.fuso;
+  const st = b['Último status'], hr = b['Horário da última leitura'], dc = b['Última estação de leitura'], ins = b['Último tipo de insucesso'], ds = b['Station'], val = b['Valor Declarado (Enviado)'];
   const datas = hr.map((v) => paraData_(v instanceof Date ? v : txt_(v).slice(0, 10), fuso));
   const ref = datas.filter((d) => d).sort().pop();
   if (!ref) return;
@@ -287,11 +287,11 @@ function noTracking_() {
     const dias = diasEntre_(datas[i], ref);
     if (dias < 2) continue;
     const faixa = dias > 10 ? '4. +10d' : dias >= 7 ? '3. 7-10d' : dias >= 4 ? '2. 4-6d' : '1. 2-3d';
-    linhas.push([ref, d, mapa[s] || s || '(vazio)', faixa, dias, txt_(ds[i])]);
+    linhas.push([ref, d, mapa[s] || s || '(vazio)', faixa, dias, txt_(ds[i]), txt_(ins[i]) || '(Sem insucesso)', Math.round(numero_(val[i]) * 100) / 100]);
     cont.set(d + '|' + faixa, (cont.get(d + '|' + faixa) || 0) + 1);
   }
   // posição atual (substitui tudo) e histórico diário por DC e faixa
-  salvar_('NoTracking', ['Data_Ref', 'DC', 'Status', 'Faixa', 'Dias', 'DS'], linhas, {chave: () => 'tudo'});
+  salvar_('NoTracking', ['Data_Ref', 'DC', 'Status', 'Faixa', 'Dias', 'DS', 'Tipo', 'Valor'], linhas, {chave: () => 'tudo'});
   salvar_('NoTracking_Historico', ['Data_Ref', 'DC', 'Faixa', 'Qtd'], [...cont].map(([k, n]) => [ref, ...k.split('|'), n]), {chave: (r) => String(r[0])});
 }
 
