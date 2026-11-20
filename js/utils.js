@@ -4,6 +4,7 @@ window.PT = (() => {
   const F = {
     int: loc.format(',.0f'),
     dec1: loc.format(',.1f'),
+    pct0: (v) => loc.format(',.0f')(v * 100) + '%',
     pct: (v) => loc.format(',.1f')(v * 100) + '%',
     pct2: (v) => loc.format(',.2f')(v * 100) + '%',
     pct3: (v) => loc.format(',.3f')(v * 100) + '%',

@@ -488,7 +488,7 @@ function enviarBanco_(cfg, tabela, linhas, conflito, mesclar, limiteMs) {
 function lerNovas_(base, colunas, exibidas, limite, obrigatorias) { // obrigatorias: colunas que toda linha pronta tem
   obrigatorias = obrigatorias || [colunas[0]];
   const props = PropertiesService.getScriptProperties();
-  const out = {fuso: null, marcas: {}, completo: true, origem: []};
+  const out = {fuso: null, marcas: {}, completo: true, origem: [], nova: []}; // nova: linha ainda não contada antes (para somas)
   colunas.forEach((c) => { out[c] = []; });
   for (const ss of abrirTodas_(base)) {
     out.fuso = out.fuso || ss.getSpreadsheetTimeZone();
@@ -513,6 +513,7 @@ function lerNovas_(base, colunas, exibidas, limite, obrigatorias) { // obrigator
     for (let i = fim - ini; i >= 0; i--) if (obrigatorias.every((c) => txt_(lidas[c][i]) !== '')) { ultimaPronta = i; break; }
     if (ultimaPronta >= 0) out.marcas[chave] = ini + ultimaPronta;
     if (ini + ultimaPronta < fim) out.completo = false;
+    for (let l = ini; l <= fim; l++) out.nova.push(l > marca && l <= out.marcas[chave]);
   }
   return out;
 }
@@ -632,7 +633,7 @@ function sincronizarCarregamento() {
     const base = 'Carregamento_' + dc.slice(3);
     // leituras novas: rotas × veículos, rotas válidas e sacas enviadas (sem repetir)
     const b = lerNovas_(base, ['Data', 'Waybill No.', 'Vehicle ID', 'Train No', 'Scan Time', 'Is Cancel', 'Scan No.', 'Destination Statio'], ['Data', 'Scan Time'], LIMITE, ['Waybill No.', 'Scan Time']);
-    const rv = new Map(), ok = new Map(), sc = new Map();
+    const rv = new Map(), ok = new Map(), sc = new Map(), cr = new Map(), cs = new Map(), cm = new Map();
     b['Data'].forEach((d, i) => {
       const scan = b['Scan Time'][i];
       const data = paraData_(d, b.fuso) || paraData_(txt_(scan).slice(0, 10), b.fuso);
@@ -643,6 +644,19 @@ function sincronizarCarregamento() {
       const vid = txt_(b['Vehicle ID'][i]).toUpperCase();
       if (vid) rv.set(`${data}|${rota}|${vid}`, {dc, data, rota, vid});
       const saca = txt_(b['Scan No.'][i]), ds = txt_(b['Destination Statio'][i]) || '(sem DS)';
+      if (valido) { // detalhe do carregamento (painel da Pontualidade): por rota e DS, sacas e minutos com bipe
+        const hora = isoHora_(scan);
+        if (hora) {
+          const k = `${data}|${rota}|${ds}`;
+          if (b.nova[i]) { // pacotes: só as linhas que ainda não foram somadas
+            const a = cr.get(k) || {dc, data, rota, ds, pacotes: 0, primeiro: hora, ultimo: hora};
+            a.pacotes++; if (hora < a.primeiro) a.primeiro = hora; if (hora > a.ultimo) a.ultimo = hora;
+            cr.set(k, a);
+          }
+          if (saca && saca !== wb) cs.set(`${k}|${saca}`, {dc, data, rota, ds, saca});
+          cm.set(`${data}|${hora.slice(0, 16)}`, {dc, data, minuto: hora.slice(0, 16) + ':00'});
+        }
+      }
       if (valido && saca && saca !== wb && !/^(DC-|CDC|RDC)/i.test(ds)) {
         const semana = terca_(data), chave = chaveDS_(ds);
         sc.set(`${semana}|${chave}|${saca}`, {dc, semana, chave_ds: chave, saca, ds});
@@ -651,6 +665,9 @@ function sincronizarCarregamento() {
     enviarBanco_(cfg, 'rota_veiculo', [...rv.values()], 'dc,data,rota,vid', false);
     enviarBanco_(cfg, 'rota_valida', [...ok.values()], 'dc,data,rota', false);
     enviarBanco_(cfg, 'saca_enviada', [...sc.values()], 'dc,semana,chave_ds,saca', false);
+    enviarBanco_(cfg, 'carga_saca', [...cs.values()], 'dc,data,rota,ds,saca', false);
+    enviarBanco_(cfg, 'carga_minuto', [...cm.values()], 'dc,data,minuto', false);
+    somarCarga_(cfg, [...cr.values()]); // soma os pacotes novos; logo depois a marca avança, para não somar de novo
     Object.entries(b.marcas).forEach(([k, v]) => props.setProperty(k, String(v)));
     completo = completo && b.completo;
     // saídas dos veículos (aba de rotas, pequena: manda tudo e atualiza)
@@ -670,6 +687,9 @@ function sincronizarCarregamento() {
   comTrava_(() => {
     trazerResumo_(cfg, 'resumo_pontualidade', ['Data', 'DC', 'Rotas', 'No_Prazo', 'Atrasadas'], 'Pontualidade' + sufixo);
     trazerResumo_(cfg, 'resumo_sacas_enviadas', ['Ini_Envio', 'DC', 'Chave_DS', 'DS', 'Enviadas'], 'Sacas_Enviadas' + sufixo);
+    trazerResumo_(cfg, 'resumo_carga_rota', ['Data', 'DC', 'Rota', 'DS', 'Veiculo', 'Pacotes', 'Sacas', 'Primeiro', 'Ultimo', 'Prevista', 'Real'], 'Carga_Rotas');
+    trazerResumo_(cfg, 'resumo_carga_ds', ['Data', 'DC', 'DS', 'Pacotes', 'Sacas', 'Rotas', 'Primeiro', 'Ultimo'], 'Carga_DS');
+    trazerResumo_(cfg, 'resumo_carga_dia', ['Data', 'DC', 'Minutos_Ativos', 'Horas', 'Primeiro', 'Ultimo'], 'Carga_Dia');
     if (!sufixo) sacas_(); // junta com as devolvidas do formulário
   });
   if (!completo) console.log('Carga inicial ainda em andamento: rode de novo (ou espere a fila).');
@@ -751,10 +771,25 @@ function recarregarOffLoadingDesde_(dataIso) {
   sincronizarOffLoading();
 }
 
+function somarCarga_(cfg, linhas) {
+  for (let i = 0; i < linhas.length; i += 2000) {
+    const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/somar_carga`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: JSON.stringify({linhas: linhas.slice(i, i + 2000)}), muteHttpExceptions: true});
+    if (r.getResponseCode() >= 300) throw new Error('Supabase somar_carga: ' + r.getContentText().slice(0, 300));
+  }
+}
+// Manual, uma vez: relê o carregamento dos três DCs desde o começo, para montar o detalhe por rota e DS.
+function recarregarCarregamento() {
+  const cfg = supa_(), props = PropertiesService.getScriptProperties();
+  const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/limpar_carga`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
+  if (r.getResponseCode() >= 300) throw new Error('Supabase limpar_carga: ' + r.getContentText().slice(0, 300));
+  props.getKeys().filter((k) => k.startsWith('marca|Carregamento_')).forEach((k) => props.deleteProperty(k));
+  sincronizarCarregamento();
+}
+
 function sincronizarBancoTudo() { // manual: reenvia tudo desde o começo (se corrigiu dados antigos)
   const props = PropertiesService.getScriptProperties();
   props.getKeys().filter((k) => k.startsWith('marca|')).forEach((k) => props.deleteProperty(k));
   sincronizarBanco();
   sincronizarOffLoading();
-  sincronizarCarregamento();
+  recarregarCarregamento(); // zera também as somas do detalhe do carregamento
 }

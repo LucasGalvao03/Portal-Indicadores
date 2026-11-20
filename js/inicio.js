@@ -140,6 +140,18 @@
     } catch (e) { console.warn('Sheets indisponível para No Scan', e); }
   }
   // --- Pontualidade de Transporte ao vivo: Resumo_Portal gerado pelo script (rotas, no prazo e atrasadas por dia e DC) ---
+  // --- detalhe do carregamento (painel da Pontualidade no layout do Excel) ---
+  if (F.carga_rotas && F.carga_ds && F.carga_dia) {
+    try {
+      const n = (v) => Number(v) || 0;
+      const [cr, cd, cdia] = await Promise.all([lerCSV(F.carga_rotas), lerCSV(F.carga_ds), lerCSV(F.carga_dia)]);
+      window.PORTAL_CARGA = {
+        rotas: cr.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), rota: r.Rota, ds: r.DS, veiculo: r.Veiculo, pacotes: n(r.Pacotes), sacas: n(r.Sacas), primeiro: r.Primeiro, ultimo: r.Ultimo, prevista: r.Prevista, real: r.Real})),
+        ds: cd.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), ds: r.DS, pacotes: n(r.Pacotes), sacas: n(r.Sacas), rotas: n(r.Rotas), primeiro: r.Primeiro, ultimo: r.Ultimo})),
+        dia: cdia.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), ativos: n(r.Minutos_Ativos), horas: n(r.Horas), primeiro: r.Primeiro, ultimo: r.Ultimo})),
+      };
+    } catch (e) { console.warn('Sheets indisponível para o detalhe do carregamento', e); }
+  }
   if (F.pontualidade) {
     try {
       const pt = (await lerCSV(F.pontualidade)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), rotas: Number(r.Rotas) || 0, no_prazo: Number(r.No_Prazo) || 0, atrasadas: Number(r.Atrasadas) || 0}));
