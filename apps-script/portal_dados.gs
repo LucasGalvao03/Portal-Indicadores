@@ -50,7 +50,7 @@ const BASES = [
   ['Lost', '13htSF1yt2LurhflNsPOfwxOikQDTC1AIJLq57UVSuBo', 'Lost · Lost / Damage (mensal)'],
 ];
 const DCS = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
-const FUNCOES = ['atualizarLeves', 'sincronizarBanco', 'sincronizarOffLoading', 'sincronizarCarregamento'];
+const FUNCOES = ['sincronizarLeves', 'sincronizarBanco', 'sincronizarOffLoading', 'sincronizarCarregamento'];
 
 // ---------- instalação ----------
 function configurar() {
@@ -97,6 +97,7 @@ const TAREFAS = {
   atualizarLeves: () => atualizarLeves(), sincronizarBanco: () => sincronizarBanco(),
   sincronizarOffLoading: () => sincronizarOffLoading(),
   sincronizarCarregamento: () => sincronizarCarregamento(),
+  sincronizarLeves: () => sincronizarLeves(),
 };
 // Os cálculos leves gravam por aqui: direto na aba (atualizarLeves) ou guardando para mandar ao banco (sincronizarLeves).
 let COLETA_ = null;
@@ -682,7 +683,8 @@ function sincronizarLeves() {
   const cfg = supa_();
   if (!cfg) return;
   const props = PropertiesService.getScriptProperties();
-  const sufixo = props.getProperty('banco_leves_sufixo') ?? '_Banco'; // vira '' depois de conferido
+  const sufixo = props.getProperty('banco_leves_sufixo') ?? ''; // HC, No Tracking, Erro e Lost agora vêm do banco (conferido em 20/11)
+  const importar = !props.getProperty('leves_importado'); // 1ª vez: leva ao banco o histórico que já está nas abas
   COLETA_ = [];
   try {
     [eficienciaHC_, noTracking_, erroTriagem_, lost_].forEach((f) => { try { f(); } catch (e) { console.error(f.name, e); } });
@@ -692,8 +694,19 @@ function sincronizarLeves() {
   const q = encodeURIComponent;
   coletas.forEach(({nomeAba, cabecalho, novas, opcoes}) => {
     const tabela = TABELAS_LEVES[nomeAba], col = cabecalho.map(nomeBanco_), c0 = q(col[0]);
+    const tudo = opcoes.chave && opcoes.chave(novas[0] || []) === 'tudo';
+    if (importar && !tudo) { // junta as linhas antigas da aba que esta rodada não substitui
+      const ss = SpreadsheetApp.getActiveSpreadsheet(), aba = ss.getSheetByName(nomeAba), fuso = ss.getSpreadsheetTimeZone();
+      const chaveDe = opcoes.chave ? (r) => String(r[0]) : (r) => String(r[0]).slice(0, 7);
+      const trocar = new Set(novas.map(chaveDe));
+      const velhas = aba && aba.getLastRow() > 1 ? aba.getRange(2, 1, aba.getLastRow() - 1, cabecalho.length).getValues()
+        .map((r) => [r[0] instanceof Date ? Utilities.formatDate(r[0], fuso, 'yyyy-MM-dd') : String(r[0]), ...r.slice(1)])
+        .filter((r) => r[0] && !trocar.has(chaveDe(r))) : [];
+      apagarBanco_(cfg, tabela, `${q(col[1])}=not.is.null`);
+      novas = [...velhas, ...novas];
+    } else
     // troca no banco o mesmo pedaço que a aba trocaria: o mês (padrão), tudo, ou a data de referência
-    if (opcoes.chave && opcoes.chave(novas[0] || []) === 'tudo') apagarBanco_(cfg, tabela, `${q(col[1])}=not.is.null`);
+    if (tudo) apagarBanco_(cfg, tabela, `${q(col[1])}=not.is.null`);
     else if (opcoes.chave) [...new Set(novas.map((r) => String(r[0])))].forEach((d) => apagarBanco_(cfg, tabela, `${c0}=eq.${d}`));
     else [...new Set(novas.map((r) => String(r[0]).slice(0, 7)))].forEach((m) => {
       const [a, mm] = m.split('-').map(Number), prox = mm === 12 ? `${a + 1}-01` : `${a}-${String(mm + 1).padStart(2, '0')}`;
@@ -702,6 +715,7 @@ function sincronizarLeves() {
     const objs = novas.map((r) => Object.fromEntries(col.map((c, i) => [c, r[i] === '' ? null : r[i]])));
     enviarBanco_(cfg, tabela, objs, null, false);
   });
+  if (importar) props.setProperty('leves_importado', 'sim');
   comTrava_(() => coletas.forEach(({nomeAba, cabecalho}) => trazerResumo_(cfg, TABELAS_LEVES[nomeAba], cabecalho.map(nomeBanco_), nomeAba + sufixo, cabecalho)));
 }
 
