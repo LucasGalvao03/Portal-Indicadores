@@ -279,3 +279,4 @@ html, body { margin: 0; background: var(--color-bg); }
 .hc-tbl .hc-prod { font-weight: 700; background: color-mix(in srgb, var(--color-fg) 4%, transparent); }
 .hc-tbl .hc-ne { background: color-mix(in srgb, var(--hc-azul) 18%, transparent); }
 .hc-tbl th.hc-ne { background: var(--hc-azul); }
+.hc-vis { margin-left: var(--cds-gap-md); }

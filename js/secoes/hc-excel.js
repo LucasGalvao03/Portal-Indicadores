@@ -11,6 +11,7 @@
   const dec1 = (v) => (v == null ? '-' : PT.fmt(v, 'dec1'));
   const int = (v) => (v ? PT.fmt(v, 'int') : '-');
   let ini = null, fim = null, dia = null; // filtros (null = padrão)
+  let visao = 'periodo'; // 'periodo' = painel do período · 'resumo' = eficiência do dia e resumo por período
 
   // pega metas do Excel, se tiver, senão usa as do texto da aba
   const metaDe = (dc) => {
@@ -99,7 +100,14 @@
       bt.addEventListener('click', () => { ini = a; fim = b; dash.render(); });
       atalhos.append(bt);
     });
-    ctl.append(atalhos, el('span', 'hc-ult', `Última data na base: ${br(ultima)}`));
+    // botão para trocar de visão
+    const vis = el('div', 'pt-seg hc-vis');
+    [['periodo', 'Painel do período'], ['resumo', 'Eficiência do dia e resumo']].forEach(([v, t]) => {
+      const bt = el('button', '', t); bt.type = 'button'; bt.setAttribute('aria-pressed', String(visao === v));
+      bt.addEventListener('click', () => { visao = v; dash.render(); });
+      vis.append(bt);
+    });
+    ctl.append(atalhos, vis, el('span', 'hc-ult', `Última data na base: ${br(ultima)}`));
 
     // cartões
     const tot = resumo(H, de, ate);
@@ -168,7 +176,8 @@
       tabelaPeriodo('Diário — últimos 30 dias até a data final', diasP, H));
 
     const topo = el('div', 'hc-topo'); topo.append(cTab, cGraf);
-    box.replaceChildren(ctl, cards, topo, cDia, res);
+    if (visao === 'resumo') { box.replaceChildren(ctl, cDia, res); return; }
+    box.replaceChildren(ctl, cards, topo);
     requestAnimationFrame(() => barras(g, porDc.map((r) => ({dc: r.dc, v: r.prod, meta: metaDe(r.dc)[0]}))));
   });
 })();
