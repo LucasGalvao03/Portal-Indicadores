@@ -220,3 +220,5 @@ html, body { margin: 0; background: var(--color-bg); }
 @container (max-width: 900px) { .nt-l1, .nt-l3 { grid-template-columns: minmax(0, 1fr); } }
 .pt-chart .nt-eixo { font-size: 11px; fill: var(--color-fg-muted); font-family: var(--font-anthropic-sans); }
 .nt-tbl .nt-total td { font-weight: var(--cds-font-weight-medium); border-top: 2px solid var(--color-border-line); }
+.nt-baixar { margin-left: auto; align-self: center; font: inherit; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); color: #fff; background: var(--imile-azul); border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.nt-baixar:hover { filter: brightness(1.15); }

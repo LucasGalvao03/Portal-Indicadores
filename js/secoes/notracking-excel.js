@@ -128,6 +128,22 @@
     limparTudo.addEventListener('click', () => { F.dc = F.status = F.tipo = F.ds = null; F.faixa = new Set(['2. 4-6d', '3. 7-10d', '4. +10d']); dash.render(); });
     filtros.append(limparTudo);
 
+    // baixar a base filtrada (abre no Excel), para conferir
+    const baixar = el('button', 'nt-baixar', `⬇ Baixar base filtrada (${PT.fmt(rows.length, 'int')} pacotes)`);
+    baixar.type = 'button';
+    baixar.addEventListener('click', () => {
+      const cab = ['Data de referência', 'DC', 'Último status', 'Faixa', 'Dias sem rastreio', 'DS destino', 'Tipo de insucesso', 'Valor R$'];
+      const q = (v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const linhas = rows.map((r) => [PT.dDataAno(r.data_ref), r.dc, r.status, ROT_FAIXA[r.faixa] || r.faixa, r.dias, r.ds, r.tipo, String(r.valor.toFixed(2)).replace('.', ',')]);
+      const csv = '\ufeff' + [cab, ...linhas].map((l) => l.map(q).join(';')).join('\r\n'); // ; e BOM: o Excel em português abre direto
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+      a.download = `no_tracking_${(rows[0] && rows[0].data_ref) || 'base'}.csv`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+    filtros.append(baixar);
+
     // cartões
     const total = rows.length, valor = d3.sum(rows, (r) => r.valor);
     const cards = el('div', 'nt-cards');
