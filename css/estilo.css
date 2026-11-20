@@ -166,3 +166,12 @@ html, body { margin: 0; background: var(--color-bg); }
 .off-pico { margin-left: auto; font-size: var(--cds-font-size-caption); opacity: .9; }
 .off-hora-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--cds-gap-md); }
 .off-hora-cab h3 { margin: 0; }
+/* OffLoading · pacotes por hora (layout da aba "Por Hora" do Excel) */
+:root { --off-teal: #3CCBDA; }
+.off-hora-titulo { margin: 0; font-size: var(--cds-font-size-h3, 18px); }
+.off-hora-b { display: grid; grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(0, 1fr); gap: var(--cds-gap-lg); padding: var(--cds-pad-lg); align-items: start; }
+@container (max-width: 1000px) { .off-hora-b { grid-template-columns: minmax(0, 1fr); } }
+.off-hora-t { text-align: center; font-weight: var(--cds-font-weight-medium); color: #8fb0ff; margin-bottom: 4px; }
+.off-hora-t.con { color: var(--off-teal); }
+@media (prefers-color-scheme: light) { .off-hora-t { color: var(--imile-azul); } .off-hora-t.con { color: #1aa3b3; } }
+.off-kpi-v.menor { font-size: 21px; white-space: nowrap; }
