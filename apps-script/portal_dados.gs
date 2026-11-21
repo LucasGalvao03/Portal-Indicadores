@@ -622,7 +622,16 @@ function sincronizarOffLoading() {
 }
 
 // ---------- Pontualidade e Sacas enviadas no banco (base de carregamento de cada DC) ----------
-function sincronizarCarregamento() {
+// Só uma execução por vez: se a fila estiver rodando, a execução manual espera até 30 s e, se não der, desiste
+// (assim as somas de pacotes nunca são feitas duas vezes pela mesma leitura).
+function exclusivo_(fn) {
+  const t = LockService.getScriptLock();
+  if (t.hasLock()) return fn();
+  if (!t.tryLock(30000)) { console.log('A fila está rodando outra tarefa agora. Tente de novo em 2 ou 3 minutos.'); return; }
+  try { return fn(); } finally { t.releaseLock(); }
+}
+function sincronizarCarregamento() { return exclusivo_(sincronizarCarregamento_); }
+function sincronizarCarregamento_() {
   const cfg = supa_();
   if (!cfg) return;
   const props = PropertiesService.getScriptProperties();
@@ -778,7 +787,8 @@ function somarCarga_(cfg, linhas) {
   }
 }
 // Manual, uma vez: relê o carregamento dos três DCs desde o começo, para montar o detalhe por rota e DS.
-function recarregarCarregamento() {
+function recarregarCarregamento() { return exclusivo_(recarregarCarregamento_); }
+function recarregarCarregamento_() {
   const cfg = supa_(), props = PropertiesService.getScriptProperties();
   const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/rpc/limpar_carga`, {method: 'post', contentType: 'application/json', headers: cfg.headers, payload: '{}', muteHttpExceptions: true});
   if (r.getResponseCode() >= 300) throw new Error('Supabase limpar_carga: ' + r.getContentText().slice(0, 300));
