@@ -6,7 +6,7 @@
 <title>Portal de Indicadores · iMile Nordeste II</title>
 <link rel="icon" href="img/logo-imile.png">
 
-<link rel="stylesheet" href="css/estilo.css?v=202611202013">
+<link rel="stylesheet" href="css/estilo.css?v=202611202208">
 </head>
 <body>
 <div id="dash-root">
@@ -164,48 +164,7 @@
         <p data-draw="lost-periodo" data-source="lost_dc">—</p>
       </div>
     </div>
-    <div class="pt-grid3" id="lost-cards">
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-PI2">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>Pacotes lost</span><b data-draw="val" data-source="lost_dc" data-field="lost" data-where="dc=DC-PI2" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Taxa de extravio</span><b data-draw="val" data-source="lost_dc" data-field="taxa" data-where="dc=DC-PI2" data-fmt="pct2">—</b></div>
-          <div class="pt-kpi"><span>Valor declarado</span><b data-draw="val" data-source="lost_dc" data-field="valor" data-where="dc=DC-PI2" data-fmt="brl0">—</b></div>
-          <div class="pt-kpi"><span>Recebido</span><b data-draw="val" data-source="lost_dc" data-field="recebido" data-where="dc=DC-PI2" data-fmt="int">—</b></div>
-        </div>
-      </div>
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-CE1">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>Pacotes lost</span><b data-draw="val" data-source="lost_dc" data-field="lost" data-where="dc=DC-CE1" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Taxa de extravio</span><b data-draw="val" data-source="lost_dc" data-field="taxa" data-where="dc=DC-CE1" data-fmt="pct2">—</b></div>
-          <div class="pt-kpi"><span>Valor declarado</span><b data-draw="val" data-source="lost_dc" data-field="valor" data-where="dc=DC-CE1" data-fmt="brl0">—</b></div>
-          <div class="pt-kpi"><span>Recebido</span><b data-draw="val" data-source="lost_dc" data-field="recebido" data-where="dc=DC-CE1" data-fmt="int">—</b></div>
-        </div>
-      </div>
-      <div class="pt-card"><span class="pt-dc" data-draw="dc-dot" data-dc="DC-PI3">—</span>
-        <div class="pt-kpis">
-          <div class="pt-kpi"><span>Pacotes lost</span><b data-draw="val" data-source="lost_dc" data-field="lost" data-where="dc=DC-PI3" data-fmt="int">—</b></div>
-          <div class="pt-kpi"><span>Taxa de extravio</span><b data-draw="val" data-source="lost_dc" data-field="taxa" data-where="dc=DC-PI3" data-fmt="pct2">—</b></div>
-          <div class="pt-kpi"><span>Valor declarado</span><b data-draw="val" data-source="lost_dc" data-field="valor" data-where="dc=DC-PI3" data-fmt="brl0">—</b></div>
-          <div class="pt-kpi"><span>Recebido</span><b data-draw="val" data-source="lost_dc" data-field="recebido" data-where="dc=DC-PI3" data-fmt="int">—</b></div>
-        </div>
-      </div>
-    </div>
-    <div class="pt-card" id="lost-semanal">
-      <h3>Evolução semanal (terça a segunda)</h3>
-      <p class="pt-sub">A última semana ainda está em andamento.</p>
-      <div class="pt-chart" data-draw="lost-barras" data-source="lost_semanal"></div>
-    </div>
-    <div class="pt-grid2">
-      <div class="pt-card" id="lost-motivos">
-        <h3>Motivos do lost</h3>
-        <div class="pt-hbars" data-draw="lost-motivos-barras" data-source="lost_motivos"></div>
-      </div>
-      <div class="pt-card" id="lost-scan">
-        <h3>Onde o pacote foi visto por último</h3>
-        <div class="pt-hbars" data-draw="lost-scan-barras" data-source="lost_scan"></div>
-      </div>
-    </div>
-    
+    <div id="lost-painel" class="off-painel" data-draw="lost-painel" data-source="diario"></div>
   </section>
 
   <!-- ===================== SACAS ===================== -->
@@ -215,31 +174,8 @@
         <h2>Controle de Sacas · DS → DC</h2>
         <p>Sacas enviadas do DC para as DSs na semana e quantas já voltaram. Meta: devolver todas.</p>
       </div>
-      <div class="pt-controls"><label>Semana de envio <select class="dash-select" data-draw="sacas-sel" aria-label="Semana de envio" data-source="sacas_semana"></select></label></div>
     </div>
-    <div class="pt-grid3" id="sacas-cards" data-draw="sacas-cards" data-source="sacas_semana"></div>
-    <div class="pt-card" id="sacas-hist">
-      <h3>Histórico por semana de envio</h3>
-      <div class="pt-tbl-wrap">
-        <table class="pt-tbl" data-source="sacas_semana" data-row-key="chave">
-          <thead><tr><th data-field="semana">Semana</th><th data-field="dc">DC</th><th class="num" data-field="enviadas">Enviadas</th><th class="num" data-field="devolvidas">Devolvidas</th><th class="num" data-field="pct">% devolução</th><th class="num" data-field="saldo">Saldo a devolver</th><th class="num" data-field="dss_sem_dev">DSs sem devolução</th></tr></thead>
-          <tbody data-draw="sacas-hist-linhas"></tbody>
-        </table>
-      </div>
-    </div>
-    <div class="pt-grid2">
-      
-      <div class="pt-card" id="sacas-sem-dev">
-        <h3>DSs sem nenhuma devolução</h3>
-        <p class="pt-sub">Ordenado pelas sacas enviadas.</p>
-        <div class="pt-tbl-wrap">
-          <table class="pt-tbl" data-source="sacas_ds" data-row-key="chave">
-            <thead><tr><th data-field="ds">DS</th><th data-field="dc">DC</th><th class="num" data-field="enviadas">Enviadas</th></tr></thead>
-            <tbody data-draw="sacas-ds-linhas"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <div id="sacas-painel" class="off-painel" data-draw="sacas-painel" data-source="diario"></div>
   </section>
 
   <details class="pt-note" id="sobre">
@@ -253,27 +189,29 @@
 
 </div>
 
-<script src="vendor/d3.min.js?v=202611202013"></script>
-<script src="js/config.js?v=202611202013"></script>
-<script src="js/motor.js?v=202611202013"></script>
-<script src="js/fontes-e-calculos.js?v=202611202013"></script>
-<script src="js/utils.js?v=202611202013"></script>
-<script src="js/abas.js?v=202611202013"></script>
-<script src="js/desenhos-genericos.js?v=202611202013"></script>
-<script src="js/secoes/visao-geral.js?v=202611202013"></script>
-<script src="js/secoes/ranking.js?v=202611202013"></script>
-<script src="js/secoes/graficos-diarios.js?v=202611202013"></script>
-<script src="js/secoes/offloading.js?v=202611202013"></script>
-<script src="js/secoes/noscan.js?v=202611202013"></script>
-<script src="js/secoes/notracking-excel.js?v=202611202013"></script>
-<script src="js/secoes/erro-excel.js?v=202611202013"></script>
-<script src="js/secoes/hc-excel.js?v=202611202013"></script>
-<script src="js/secoes/pont-excel.js?v=202611202013"></script>
-<script src="js/secoes/no-tracking.js?v=202611202013"></script>
-<script src="js/secoes/lost.js?v=202611202013"></script>
-<script src="js/secoes/controle-sacas.js?v=202611202013"></script>
-<script src="dados/novembro.js?v=202611202013"></script>
-<script src="js/resumo-ranking.js?v=202611202013"></script>
-<script src="js/inicio.js?v=202611202013"></script>
+<script src="vendor/d3.min.js?v=202611202208"></script>
+<script src="js/config.js?v=202611202208"></script>
+<script src="js/motor.js?v=202611202208"></script>
+<script src="js/fontes-e-calculos.js?v=202611202208"></script>
+<script src="js/utils.js?v=202611202208"></script>
+<script src="js/abas.js?v=202611202208"></script>
+<script src="js/desenhos-genericos.js?v=202611202208"></script>
+<script src="js/secoes/visao-geral.js?v=202611202208"></script>
+<script src="js/secoes/ranking.js?v=202611202208"></script>
+<script src="js/secoes/graficos-diarios.js?v=202611202208"></script>
+<script src="js/secoes/offloading.js?v=202611202208"></script>
+<script src="js/secoes/noscan.js?v=202611202208"></script>
+<script src="js/secoes/notracking-excel.js?v=202611202208"></script>
+<script src="js/secoes/erro-excel.js?v=202611202208"></script>
+<script src="js/secoes/hc-excel.js?v=202611202208"></script>
+<script src="js/secoes/pont-excel.js?v=202611202208"></script>
+<script src="js/secoes/lost-excel.js?v=202611202208"></script>
+<script src="js/secoes/sacas-excel.js?v=202611202208"></script>
+<script src="js/secoes/no-tracking.js?v=202611202208"></script>
+<script src="js/secoes/lost.js?v=202611202208"></script>
+<script src="js/secoes/controle-sacas.js?v=202611202208"></script>
+<script src="dados/novembro.js?v=202611202208"></script>
+<script src="js/resumo-ranking.js?v=202611202208"></script>
+<script src="js/inicio.js?v=202611202208"></script>
 </body>
 </html>

@@ -179,7 +179,8 @@
   // --- Controle de Sacas ao vivo: Resumo_Sacas gerado pelo script (enviadas x devolvidas por semana de envio, DC e DS) ---
   if (F.sacas) {
     try {
-      const sc = (await lerCSV(F.sacas)).filter((r) => r.Ini_Envio && r.DC).map((r) => ({ini: iso(r.Ini_Envio), dc: r.DC.trim(), ds: (r.DS || '').trim(), env: Number(r.Enviadas) || 0, dev: Number(r.Devolvidas) || 0}));
+      const sc = (await lerCSV(F.sacas)).filter((r) => r.Ini_Envio && r.DC).map((r) => ({ini: iso(r.Ini_Envio), dc: r.DC.trim(), ds: (r.DS || '').trim(), env: Number(r.Enviadas) || 0, dev: Number(r.Devolvidas) || 0, esp: (r.Especialista || '').trim(), lanc: Number(r.Lancamentos) || 0, ult: r.Ultimo_Lancamento ? iso(r.Ultimo_Lancamento) : ''}));
+      window.PORTAL_SACAS = sc; // para o painel no layout do Excel
       const primeira = sc.filter((r) => r.env > 0).map((r) => r.ini).sort()[0];
       if (primeira) {
         const D = (x) => new Date(x + 'T00:00:00Z');
@@ -215,6 +216,8 @@
     try {
       const num = (v) => Number(String(v || '0').replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0;
       const lo = (await lerCSV(F.lost)).filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), motivo: (r.Motivo || '').trim() || '(sem motivo)', scan: (r.Ultimo_Scan || '').trim() || '(sem scan)', n: num(r.Lost), valor: num(r.Valor)}));
+      window.PORTAL_LOST = {resumo: lo, lista: null};
+      if (F.lost_lista) lerCSV(F.lost_lista).then((l) => { window.PORTAL_LOST.lista = l.filter((r) => r.Data && r.DC).map((r) => ({data: iso(r.Data), dc: r.DC.trim(), waybill: r.Waybill, valor: num(r.Valor), motivo: (r.Motivo || '').trim() || '(sem motivo)', scan: (r.Ultimo_Scan || '').trim() || '(sem scan)', obs: r.Obs || ''})); dash.render(); }).catch(() => {});
       const fim = lo.map((r) => r.data).sort().pop();
       if (fim) {
         const ini = fim.slice(0, 8) + '01';

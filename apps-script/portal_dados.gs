@@ -322,15 +322,17 @@ function erroTriagem_() {
 
 // ---------- Lost ----------
 function lost_() {
-  const bl = lerBase_('Lost', ['Waybill N', 'Resp', 'Date', 'Uploaded Declared Value', 'Lost request reason', 'Last Scan Type'], ['Date', 'Uploaded Declared Value']);
-  const wb = bl['Waybill N'], resp = bl['Resp'], dt = bl['Date'], val = bl['Uploaded Declared Value'], mot = bl['Lost request reason'], scan = bl['Last Scan Type'];
-  const g = new Map();
+  const bl = lerBase_('Lost', ['Waybill N', 'Resp', 'Date', 'Uploaded Declared Value', 'Lost request reason', 'Last Scan Type', 'Obs (Reason or Driver ID)'], ['Date', 'Uploaded Declared Value']);
+  const wb = bl['Waybill N'], resp = bl['Resp'], dt = bl['Date'], val = bl['Uploaded Declared Value'], mot = bl['Lost request reason'], scan = bl['Last Scan Type'], obs = bl['Obs (Reason or Driver ID)'];
+  const g = new Map(), lista = [];
   for (let i = 0; i < wb.length; i++) {
     const dc = txt_(resp[i]), data = paraData_(dt[i], '');
     if (!txt_(wb[i]) || !DCS.includes(dc) || !data) continue;
     const k = [data, dc, txt_(mot[i]), txt_(scan[i])].join('|');
     const r = g.get(k) || [0, 0]; r[0] += 1; r[1] += numero_(val[i]); g.set(k, r);
+    lista.push([data, dc, txt_(typeof wb[i] === 'number' ? wb[i].toFixed(0) : wb[i]), Math.round(numero_(val[i]) * 100) / 100, txt_(mot[i]), txt_(scan[i]), txt_(obs[i])]);
   }
+  salvar_('Lost_Lista', ['Data', 'DC', 'Waybill', 'Valor', 'Motivo', 'Ultimo_Scan', 'Obs'], lista); // um pacote por linha, para o site
   salvar_('Lost', ['Data', 'DC', 'Motivo', 'Ultimo_Scan', 'Lost', 'Valor'], [...g].map(([k, [n, v]]) => [...k.split('|'), n, Math.round(v * 100) / 100]));
 }
 
@@ -408,16 +410,23 @@ function sacas_() {
   const env = abaEnv && abaEnv.getLastRow() > 1 ? abaEnv.getRange(2, 1, abaEnv.getLastRow() - 1, 5).getDisplayValues() : [];
   const bf = lerBase_('Formulario_Sacas', ['Data do Preenchimento', 'DC', 'Quantidade de Sacas', 'DS'], ['Data do Preenchimento']), fuso = bf.fuso;
   const m = new Map();
-  const linha = (ini, dc, chave) => { const k = `${ini}|${dc}|${chave}`; if (!m.has(k)) m.set(k, {ini, dc, ds: '', env: 0, dev: 0}); return m.get(k); };
+  const linha = (ini, dc, chave) => { const k = `${ini}|${dc}|${chave}`; if (!m.has(k)) m.set(k, {ini, dc, chave, ds: '', env: 0, dev: 0, lanc: 0, ult: ''}); return m.get(k); };
+  // especialista responsável por cada DS (planilha "Responsável DS"; linha Responsavel_DS na Config)
+  const esp = new Map();
+  try {
+    const br = lerBase_('Responsavel_DS', ['Short Code', 'Especialista']);
+    br['Short Code'].forEach((c, i) => { const k = chaveDS_(txt_(c)), e = txt_(br['Especialista'][i]); if (k && e && !esp.has(k)) esp.set(k, e); });
+  } catch (e) { console.log('Sem a planilha de especialistas: ' + e.message); }
   env.forEach(([ini, dc, chave, ds, n]) => { if (!ini) return; const r = linha(ini, dc, chave); r.ds = r.ds || ds; r.env += numero_(n); });
   bf['Data do Preenchimento'].forEach((v, i) => {
     const data = paraData_(v, fuso);
     if (!data) return;
     const d = new Date(terca_(data) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 7);
     const ds = txt_(bf['DS'][i]) || '(sem DS)', x = linha(d.toISOString().slice(0, 10), dcPadrao_(bf['DC'][i]), chaveDS_(ds));
-    x.ds = x.ds || ds; x.dev += numero_(bf['Quantidade de Sacas'][i]);
+    x.ds = x.ds || ds; x.dev += numero_(bf['Quantidade de Sacas'][i]); x.lanc += 1; if (data > x.ult) x.ult = data;
   });
-  mesclar_('Sacas', ['Ini_Envio', 'DC', 'DS', 'Enviadas', 'Devolvidas'], [...m.values()].map((r) => [r.ini, r.dc, r.ds, r.env, r.dev]), {chave: () => 'tudo'});
+  mesclar_('Sacas', ['Ini_Envio', 'DC', 'DS', 'Enviadas', 'Devolvidas', 'Especialista', 'Lancamentos', 'Ultimo_Lancamento'],
+    [...m.values()].map((r) => [r.ini, r.dc, r.ds, r.env, r.dev, esp.get(r.chave) || '', r.lanc, r.ult]), {chave: () => 'tudo'});
 }
 
 // =====================================================================
@@ -712,7 +721,7 @@ function recarregarOffLoading() {
 }
 
 // ---------- Indicadores leves no banco (HC, No Tracking, Erro de Triagem e Lost) ----------
-const TABELAS_LEVES = {HC: 'hc', NoTracking: 'no_tracking', NoTracking_Historico: 'no_tracking_historico', Erro: 'erro', Erro_Lista: 'erro_lista', Erro_Recebidos: 'erro_recebidos', Lost: 'lost'};
+const TABELAS_LEVES = {HC: 'hc', NoTracking: 'no_tracking', NoTracking_Historico: 'no_tracking_historico', Erro: 'erro', Erro_Lista: 'erro_lista', Erro_Recebidos: 'erro_recebidos', Lost: 'lost', Lost_Lista: 'lost_lista'};
 const nomeBanco_ = (c) => c.replace(/ /g, '_'); // 'Orders Loading' → 'Orders_Loading'
 function apagarBanco_(cfg, tabela, filtro) {
   const r = UrlFetchApp.fetch(`${cfg.url}/rest/v1/${tabela}?${filtro}`, {method: 'delete', headers: Object.assign({Prefer: 'return=minimal'}, cfg.headers), muteHttpExceptions: true});
