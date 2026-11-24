@@ -224,6 +224,21 @@
     rf.type = 'button'; rf.disabled = atualizando;
     rf.addEventListener('click', () => { carregar(dcSel); dash.render(); });
     filtros.append(rf);
+    const ac = el('button', 'av-acordar', '⏰ Acordar robô');
+    ac.type = 'button';
+    ac.title = 'Se o robô estiver em soneca, volta a puxar na hora';
+    ac.addEventListener('click', async () => {
+      const txt = ac.textContent; ac.disabled = true; ac.textContent = '⏰ Acordando…';
+      try {
+        await window.portalApi('acordar', {metodo: 'POST'});
+        window.portalToast && window.portalToast({icone: '⏰', titulo: 'Robô avisado', texto: 'Se estava em soneca, volta a puxar em até ~15s.'});
+      } catch (e) {
+        window.portalToast && window.portalToast({icone: '⚠️', titulo: 'Não consegui avisar o robô', texto: String((e && e.message) || e).slice(0, 120)});
+      } finally {
+        setTimeout(() => { ac.disabled = false; ac.textContent = txt; }, 3000);
+      }
+    });
+    filtros.append(ac);
     const out = [filtros];
 
     if (!A) {
