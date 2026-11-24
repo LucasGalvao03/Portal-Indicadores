@@ -200,6 +200,7 @@
   const desenhar = (m) => (box) => {
     modo = m; dcSel = dcPor[m];
     const A = dados[dcSel], agora = agoraL();
+    const dormindo = !A || !A.gerado || (ms(agora) - ms(A.gerado)) / 60000 > 10;  // robô parado/em soneca → mostra "Acordar"
     // topo: DC e intervalo
     const seg = el('div', 'pt-seg');
     DCS.forEach((d) => { const b = el('button', '', d); b.type = 'button'; b.setAttribute('aria-pressed', String(d === dcSel)); b.addEventListener('click', () => { dcPor[m] = dcSel = d; if (!dados[d]) carregar(d); dash.render(); }); seg.append(b); });
@@ -224,21 +225,23 @@
     rf.type = 'button'; rf.disabled = atualizando;
     rf.addEventListener('click', () => { carregar(dcSel); dash.render(); });
     filtros.append(rf);
-    const ac = el('button', 'av-acordar', '⏰ Acordar robô');
-    ac.type = 'button';
-    ac.title = 'Se o robô estiver em soneca, volta a puxar na hora';
-    ac.addEventListener('click', async () => {
-      const txt = ac.textContent; ac.disabled = true; ac.textContent = '⏰ Acordando…';
-      try {
-        await window.portalApi('acordar', {metodo: 'POST'});
-        window.portalToast && window.portalToast({icone: '⏰', titulo: 'Robô avisado', texto: 'Se estava em soneca, volta a puxar em até ~15s.'});
-      } catch (e) {
-        window.portalToast && window.portalToast({icone: '⚠️', titulo: 'Não consegui avisar o robô', texto: String((e && e.message) || e).slice(0, 120)});
-      } finally {
-        setTimeout(() => { ac.disabled = false; ac.textContent = txt; }, 3000);
-      }
-    });
-    filtros.append(ac);
+    if (dormindo) {
+      const ac = el('button', 'av-acordar', '⏰ Acordar robô');
+      ac.type = 'button';
+      ac.title = 'O robô parece parado (soneca) — avisa ele para voltar a puxar na hora';
+      ac.addEventListener('click', async () => {
+        const txt = ac.textContent; ac.disabled = true; ac.textContent = '⏰ Acordando…';
+        try {
+          await window.portalApi('acordar', {metodo: 'POST'});
+          window.portalToast && window.portalToast({icone: '⏰', titulo: 'Robô avisado', texto: 'Se estava em soneca, volta a puxar em até ~15s.'});
+        } catch (e) {
+          window.portalToast && window.portalToast({icone: '⚠️', titulo: 'Não consegui avisar o robô', texto: String((e && e.message) || e).slice(0, 120)});
+        } finally {
+          setTimeout(() => { ac.disabled = false; ac.textContent = txt; }, 3000);
+        }
+      });
+      filtros.append(ac);
+    }
     const out = [filtros];
 
     if (!A) {

@@ -517,6 +517,9 @@ html, body { margin: 0; background: var(--color-bg); }
 .av-refresh { margin-left: auto; align-self: center; font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: var(--imile-azul); border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
 .av-refresh:hover:not(:disabled) { filter: brightness(1.15); }
 .av-refresh:disabled { opacity: .6; cursor: default; }
+.av-acordar { align-self: center; font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: #e67e22; border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+.av-acordar:hover:not(:disabled) { filter: brightness(1.1); }
+.av-acordar:disabled { opacity: .6; cursor: default; }
 
 /* ---------- online agora ---------- */
 .pt-online { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; padding: 8px 14px; border-radius: 10px; background: var(--color-panel); border: 1px solid var(--color-border-line); overflow: hidden; }
@@ -677,7 +680,7 @@ html, body { margin: 0; background: var(--color-bg); }
 .tv-btn:hover { transform: translateY(-2px); }
 .pt-sec-head:has(.tv-btn) { display: flex; gap: 16px; align-items: center; }
 body.modo-tv .pt { grid-template-columns: minmax(0, 1fr); }
-body.modo-tv .pt-side, body.modo-tv .pt-online, body.modo-tv .chat-btn, body.modo-tv .chat-painel, body.modo-tv .tv-btn, body.modo-tv .topo-btn, body.modo-tv .av-filtros .av-refresh { display: none !important; }
+body.modo-tv .pt-side, body.modo-tv .pt-online, body.modo-tv .chat-btn, body.modo-tv .chat-painel, body.modo-tv .tv-btn, body.modo-tv .topo-btn, body.modo-tv .av-filtros .av-refresh, body.modo-tv .av-filtros .av-acordar { display: none !important; }
 body.modo-tv .pt-main { padding: 18px 26px; }
 body.modo-tv .av-painel { zoom: 1.18; }
 body.modo-tv .pt-sec-head h2 { font-size: 28px; }
