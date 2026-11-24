@@ -1,0 +1,6 @@
+apps-script/
+supabase/
+*.gs
+credenciais_google.json
+config.py
+.env

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal de Indicadores · iMile Nordeste II</title>
+<link rel="icon" href="img/logo-imile.png">
+
+<link rel="stylesheet" href="css/estilo.css?v=202611232337">
+</head>
+<body>
+<div id="dash-root">
+
+<div class="pt-wrap">
+<div class="pt">
+  <aside class="pt-side" id="menu">
+    <div class="pt-brandbox">
+      <img class="pt-logo" alt="iMile Delivery" src="img/logo-imile.png">
+      <div class="pt-reg">Nordeste II</div>
+    </div>
+    <nav class="pt-tabs" role="tablist" aria-label="Relatórios" id="abas">
+      <div class="pt-navgrp">Geral</div>
+      <button class="pt-tab" role="tab" data-tab="visao" aria-selected="true">Visão geral</button>
+      <button class="pt-tab" role="tab" data-tab="ranking" aria-selected="false">Ranking</button>
+      <button class="pt-tab" role="tab" data-tab="aovivo" aria-selected="false"><span class="av-dot"></span>Ao vivo · Recebimento</button>
+      <button class="pt-tab" role="tab" data-tab="expedicao" aria-selected="false"><span class="av-dot"></span>Ao vivo · Expedição</button>
+      <div class="pt-navgrp">Indicadores</div>
+      <button class="pt-tab" role="tab" data-tab="offloading" aria-selected="false">OffLoading</button>
+      <button class="pt-tab" role="tab" data-tab="noscan" aria-selected="false">No Scan</button>
+      <button class="pt-tab" role="tab" data-tab="notracking" aria-selected="false">No Tracking</button>
+      <button class="pt-tab" role="tab" data-tab="erro" aria-selected="false">Erro de Triagem</button>
+      <button class="pt-tab" role="tab" data-tab="eficiencia" aria-selected="false">Eficiência HC</button>
+      <button class="pt-tab" role="tab" data-tab="pontualidade" aria-selected="false">Pontualidade</button>
+      <div class="pt-navgrp">Controles</div>
+      <button class="pt-tab" role="tab" data-tab="lost" aria-selected="false">Lost</button>
+      <button class="pt-tab" role="tab" data-tab="sacas" aria-selected="false">Controle de Sacas</button>
+    </nav>
+    <div class="pt-side-foot" data-sem-traducao>DC-PI2, DC-CE1 e DC-PI3</div>
+  </aside>
+
+  <main class="pt-main">
+  <div class="pt-online" id="topo" style="display:none"></div>
+
+  <!-- ===================== VISÃO GERAL ===================== -->
+  <section class="pt-sec" id="visao">
+    <div class="pt-sec-head">
+      <div>
+        <h2>Resumo semanal dos indicadores</h2>
+        <p>Resultado de cada DC na semana operacional (terça a segunda), comparado com a meta e o desafio.</p>
+      </div>
+      <div class="pt-controls">
+        <label>Semana <select class="dash-select" data-draw="semana-sel" aria-label="Semana" data-source="resumo"></select></label>
+      </div>
+    </div>
+    <div class="pt-card" id="visao-status">
+      <p class="pt-sub" data-draw="visao-contagem">—</p>
+      <div class="pt-tbl-wrap"><div class="pt-status" data-draw="visao-grid" data-source="resumo" role="table" aria-label="Status por indicador e DC"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================== RANKING ===================== -->
+  <section class="pt-sec" id="ranking" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Ranking de indicadores dos DCs</h2>
+        <p data-draw="ranking-periodo">—</p>
+      </div>
+      <div class="pt-seg" role="group" aria-label="Período do ranking" id="ranking-seg">
+        <button type="button" data-periodo="Semanal">Semanal</button>
+        <button type="button" data-periodo="Mensal">Mensal</button>
+      </div>
+    </div>
+    <div class="pt-podium" id="ranking-podio" data-draw="ranking-podio" data-source="ranking_total"></div>
+    <div class="pt-card" id="ranking-tabela">
+      <h3>Pontos por indicador</h3>
+      <p class="pt-sub">★ bateu o desafio (peso + 5) · ✔ bateu a meta (peso) · ✖ não bateu (0). Total possível: 130 pontos.</p>
+      <div class="pt-tbl-wrap">
+        <table class="pt-tbl">
+          <thead><tr><th>Indicador</th><th>Meta · Desafio</th><th class="num">DC-PI2</th><th class="num">DC-CE1</th><th class="num">DC-PI3</th></tr></thead>
+          <tbody data-draw="ranking-linhas"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== OFFLOADING ===================== -->
+  <section class="pt-sec" id="offloading" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>OffLoading · Taxa de consolidação</h2>
+        <p>Pacotes consolidados em saca sobre os pacotes recebidos, por dia. Meta 80% · desafio 90%. Lido direto do Google Sheets a cada abertura.</p>
+      </div>
+    </div>
+    <div id="off-painel" class="off-painel" data-draw="off-painel" data-source="off_todos off_hora"></div>
+  </section>
+
+  <!-- ===================== AO VIVO ===================== -->
+  <section class="pt-sec" id="aovivo" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Ao vivo · Recebimento (descarregamento e consolidação)</h2>
+        <p>O robô da operação puxa os bipes do sistema da iMile a cada 3 minutos. Escolha o DC e o intervalo (pode atravessar a meia-noite).</p>
+      </div>
+    </div>
+    <div id="aovivo-painel" class="av-painel" data-draw="aovivo-painel"></div>
+  </section>
+
+  <!-- ===================== EXPEDIÇÃO AO VIVO ===================== -->
+  <section class="pt-sec" id="expedicao" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Ao vivo · Expedição (carregamento)</h2>
+        <p>Rotas sendo carregadas, veículos, operadores e ritmo da expedição, puxados do LoadingScan pelo robô da operação a cada 3 minutos.</p>
+      </div>
+    </div>
+    <div id="expedicao-painel" class="av-painel" data-draw="expedicao-painel"></div>
+  </section>
+
+  <!-- ===================== NO SCAN ===================== -->
+  <section class="pt-sec" id="noscan" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>No Scan · Pedidos sem registro de expedição</h2>
+        <p>Pedidos recebidos na DS sem bipe de expedição no DC, sobre o total recebido. Meta até 1% · desafio até 0,7%.</p>
+      </div>
+    </div>
+    <div id="noscan-painel" class="off-painel" data-draw="noscan-painel" data-source="diario"></div>
+  </section>
+
+  <!-- ===================== NO TRACKING ===================== -->
+  <section class="pt-sec" id="notracking" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>No Tracking · Pacotes sem rastreio</h2>
+        <p>Pacotes parados sem nova leitura, por faixa de dias. O indicador acompanha os parados há 4 dias ou mais. Metas: PI2 até 80 · CE1 até 30 · PI3 até 20.</p>
+      </div>
+      <p class="pt-note" data-draw="nt-ref" data-source="notracking">—</p>
+    </div>
+    <div id="nt-painel" class="off-painel" data-draw="nt-painel" data-source="notracking"></div>
+  </section>
+
+  <!-- ===================== ERRO DE TRIAGEM ===================== -->
+  <section class="pt-sec" id="erro" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Erro de Triagem · Pacotes enviados para a DS errada</h2>
+        <p>Erros de triagem sobre o total recebido, por dia. Meta até 0,1% · desafio até 0,04%.</p>
+      </div>
+    </div>
+    <div id="erro-painel" class="off-painel" data-draw="erro-painel" data-source="diario"></div>
+  </section>
+
+  <!-- ===================== EFICIÊNCIA HC ===================== -->
+  <section class="pt-sec" id="eficiencia" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Eficiência HC · Produtividade por pessoa</h2>
+        <p>Volume recebido dividido pela quantidade de pessoas no dia (pacotes por pessoa). Metas: PI2 800 · CE1 e PI3 850. Desafios: PI2 850 · CE1 e PI3 900.</p>
+      </div>
+    </div>
+    <div id="hc-painel" class="off-painel" data-draw="hc-painel" data-source="diario"></div>
+  </section>
+
+  <!-- ===================== PONTUALIDADE ===================== -->
+  <section class="pt-sec" id="pontualidade" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Pontualidade de Transporte</h2>
+        <p>Rotas de transferência que saíram do DC depois do horário previsto. Meta até 7% de rotas atrasadas · desafio 0%.</p>
+      </div>
+    </div>
+    <div id="pont-painel" class="off-painel" data-draw="pont-painel" data-source="diario"></div>
+  </section>
+
+  <!-- ===================== LOST ===================== -->
+  <section class="pt-sec" id="lost" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Lost · Pacotes extraviados</h2>
+        <p data-draw="lost-periodo" data-source="lost_dc">—</p>
+      </div>
+    </div>
+    <div id="lost-painel" class="off-painel" data-draw="lost-painel" data-source="diario"></div>
+  </section>
+
+  <!-- ===================== SACAS ===================== -->
+  <section class="pt-sec" id="sacas" hidden>
+    <div class="pt-sec-head">
+      <div>
+        <h2>Controle de Sacas · DS → DC</h2>
+        <p>Sacas enviadas do DC para as DSs na semana e quantas já voltaram. Meta: devolver todas.</p>
+      </div>
+    </div>
+    <div id="sacas-painel" class="off-painel" data-draw="sacas-painel" data-source="diario"></div>
+  </section>
+
+  <details class="pt-note" id="sobre">
+    <summary>Sobre os dados</summary>
+    <p>Os números vêm das abas Resumo_Portal do Google Sheets (publicadas na web), lidas sempre que a página abre; algumas são atualizadas por script a cada hora. A Visão geral e o Ranking são calculados com esses números, usando as metas, pesos e explicações do Excel. Listas com waybills, valores e nomes ficam fora deste site público.</p>
+    <p data-draw="fonte-status">—</p>
+  </details>
+  </main>
+</div>
+</div>
+
+</div>
+
+<script src="vendor/d3.min.js?v=202611232337"></script>
+<script src="js/idioma.js?v=202611232337"></script>
+<script src="js/login.js?v=202611232337"></script>
+<script src="js/config.js?v=202611232337"></script>
+<script src="js/motor.js?v=202611232337"></script>
+<script src="js/fontes-e-calculos.js?v=202611232337"></script>
+<script src="js/utils.js?v=202611232337"></script>
+<script src="js/abas.js?v=202611232337"></script>
+<script src="js/desenhos-genericos.js?v=202611232337"></script>
+<script src="js/secoes/visao-geral.js?v=202611232337"></script>
+<script src="js/secoes/ranking.js?v=202611232337"></script>
+<script src="js/secoes/graficos-diarios.js?v=202611232337"></script>
+<script src="js/secoes/offloading.js?v=202611232337"></script>
+<script src="js/experiencia.js?v=202611232337"></script>
+<script src="js/animacoes.js?v=202611232337"></script>
+<script src="js/social.js?v=202611232337"></script>
+<script src="js/secoes/aovivo.js?v=202611232337"></script>
+<script src="js/secoes/noscan.js?v=202611232337"></script>
+<script src="js/secoes/notracking-excel.js?v=202611232337"></script>
+<script src="js/secoes/erro-excel.js?v=202611232337"></script>
+<script src="js/secoes/hc-excel.js?v=202611232337"></script>
+<script src="js/secoes/pont-excel.js?v=202611232337"></script>
+<script src="js/secoes/lost-excel.js?v=202611232337"></script>
+<script src="js/secoes/sacas-excel.js?v=202611232337"></script>
+<script src="js/secoes/no-tracking.js?v=202611232337"></script>
+<script src="js/secoes/lost.js?v=202611232337"></script>
+<script src="js/secoes/controle-sacas.js?v=202611232337"></script>
+<script src="dados/novembro.js?v=202611232337"></script>
+<script src="js/resumo-ranking.js?v=202611232337"></script>
+<script src="js/inicio.js?v=202611232337"></script>
+</body>
+</html>
