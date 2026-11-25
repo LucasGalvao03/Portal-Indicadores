@@ -727,6 +727,9 @@ body.menu-escondido .menu-toggle { display: block; }
 @keyframes guiaFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes guiaUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
+/* ===== selo "última atualização" por relatório ===== */
+.atz-selo { align-self: center; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--color-fg-muted); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 11px; white-space: nowrap; }
+
 /* ===== leve modernização da barra lateral ===== */
 .pt-side { background-image: linear-gradient(180deg, var(--imile-marinho) 0%, #00103a 100%); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
 .pt-side::-webkit-scrollbar { width: 8px; }
