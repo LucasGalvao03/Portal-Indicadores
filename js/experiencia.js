@@ -161,13 +161,45 @@
   // ---------- Modo TV (Ao vivo em tela cheia, trocando de DC sozinho) ----------
   let tvTimer = null, tvAviso = null, tvFalta = 0;
   const TV_SEG = 30;
-  function secAoVivo() { return ['aovivo', 'expedicao'].map((id) => document.getElementById(id)).find((s) => s && !s.hidden); }
-  function proximoDC() {
-    const s = secAoVivo(); if (!s) return;
-    const seg = s.querySelector('.av-filtros .pt-seg'); if (!seg) return;
-    const bs = [...seg.querySelectorAll('button')], i = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
-    const prox = bs[(i + 1) % bs.length]; if (prox) prox.click();
+  const TV_SECS = ['aovivo', 'expedicao'];
+  const TV_NOME = {aovivo: 'Recebimento', expedicao: 'Expedição'};
+  function secAoVivo() { return TV_SECS.map((id) => document.getElementById(id)).find((s) => s && !s.hidden); }
+  function dcAtual() {
+    const s = secAoVivo(); if (!s) return '';
+    const b = s.querySelector('.av-filtros .pt-seg button[aria-pressed="true"]');
+    return b ? b.textContent.trim() : '';
   }
+  // Modo TV passa por: Recebimento PI2→CE1→PI3 → Expedição PI2→CE1→PI3 → recomeça. Sem ninguém mexer na TV.
+  function tvIrPara(secId, dcIdx) {
+    const atual = secAoVivo();
+    if (!atual || atual.id !== secId) { const t = document.querySelector(`.pt-tab[data-tab="${secId}"]`); if (t) t.click(); }
+    setTimeout(() => {
+      const seg = document.querySelector(`#${secId} .av-filtros .pt-seg`);
+      if (seg) { const bs = [...seg.querySelectorAll('button')]; const b = bs[dcIdx] || bs[0]; if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); }
+      setTimeout(ajustarTV, 80);
+    }, 80);
+  }
+  function proximoTV() {
+    const s = secAoVivo(); if (!s) { tvIrPara('aovivo', 0); return; }
+    const seg = s.querySelector('.av-filtros .pt-seg');
+    const bs = seg ? [...seg.querySelectorAll('button')] : [];
+    const i = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
+    if (i > -1 && i < bs.length - 1) { bs[i + 1].click(); setTimeout(ajustarTV, 80); }   // próximo DC da mesma seção
+    else { const si = TV_SECS.indexOf(s.id); tvIrPara(TV_SECS[(si + 1) % TV_SECS.length], 0); }  // acabou os DCs → troca de seção
+  }
+  // encaixa todo o painel na tela da TV (sem rolar), reduzindo o zoom só quando precisa
+  function ajustarTV() {
+    if (!document.body.classList.contains('modo-tv')) return;
+    const s = secAoVivo(); if (!s) return;
+    const p = s.querySelector('.av-painel'); if (!p) return;
+    const cur = parseFloat(p.style.zoom) || 1;
+    const alturaReal = p.getBoundingClientRect().height / cur;
+    if (!alturaReal) return;
+    const dispo = window.innerHeight - 104;  // espaço do cabeçalho + barra do Modo TV
+    let f = Math.min(dispo / alturaReal, 1.12); f = Math.max(0.45, f);
+    if (Math.abs(f - cur) > 0.02) p.style.zoom = String(Math.round(f * 100) / 100);
+  }
+  window.addEventListener('resize', () => { if (document.body.classList.contains('modo-tv')) ajustarTV(); });
   function modoTV(ligar) {
     if (ligar) {
       if (!secAoVivo()) { const t = document.querySelector('.pt-tab[data-tab="aovivo"]'); if (t) t.click(); }
@@ -178,14 +210,17 @@
       const sair = el('button', 'tv-sair', '✕ Sair do Modo TV'); sair.type = 'button'; sair.addEventListener('click', () => modoTV(false));
       tvFalta = TV_SEG;
       const atualiza = () => {
-        tvAviso.replaceChildren(el('span', 'tv-live', '📺 Modo TV'), el('span', '', `próximo DC em ${tvFalta}s`), sair);
+        const s = secAoVivo(), nome = s ? (TV_NOME[s.id] || '') : '';
+        tvAviso.replaceChildren(el('span', 'tv-live', '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV')), el('span', '', `próximo em ${tvFalta}s`), sair);
       };
+      setTimeout(() => { tvIrPara('aovivo', 0); atualiza(); setTimeout(ajustarTV, 200); }, 60);
       atualiza();
-      tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoDC(); } atualiza(); }, 1000);
+      tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } atualiza(); ajustarTV(); }, 1000);
     } else {
       document.body.classList.remove('modo-tv');
       clearInterval(tvTimer); tvTimer = null;
       if (tvAviso) { tvAviso.remove(); tvAviso = null; }
+      document.querySelectorAll('.av-painel').forEach((p) => { p.style.zoom = ''; });  // tira o encaixe da TV
       if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     }
   }
@@ -195,7 +230,7 @@
     ['aovivo', 'expedicao'].forEach((id) => {
       const cab = document.querySelector(`#${id} .pt-sec-head`);
       if (!cab || cab.querySelector('.tv-btn')) return;
-      const b = el('button', 'tv-btn', '📺 Modo TV'); b.type = 'button'; b.title = 'Tela cheia para deixar na TV da operação; troca de DC a cada 30 s';
+      const b = el('button', 'tv-btn', '📺 Modo TV'); b.type = 'button'; b.title = 'Tela cheia para a TV: passa sozinho por Recebimento e Expedição, DC a DC, a cada 30 s';
       b.addEventListener('click', () => modoTV(true));
       cab.append(b);
     });
@@ -236,6 +271,59 @@
     addEventListener('scroll', ve, {passive: true}); ve();
   }
 
+  // ---------- recolher/expandir a barra de abas (mais área de visualização) ----------
+  function menuRecolher() {
+    if (document.querySelector('.menu-toggle')) return;
+    const abre = el('button', 'menu-toggle', '☰'); abre.type = 'button'; abre.title = 'Mostrar as abas'; abre.setAttribute('aria-label', 'Mostrar as abas');
+    abre.addEventListener('click', () => { document.body.classList.remove('menu-escondido'); guarda('portal_menu', '1'); });
+    raiz().append(abre);
+    const nav = document.querySelector('.pt-tabs');
+    const rec = el('button', 'menu-recolhe', '« Recolher'); rec.type = 'button'; rec.title = 'Esconder as abas para ampliar a visualização'; rec.setAttribute('aria-label', 'Recolher as abas');
+    rec.addEventListener('click', () => { document.body.classList.add('menu-escondido'); guarda('portal_menu', '0'); });
+    if (nav) nav.after(rec);
+    if (le('portal_menu') === '0') document.body.classList.add('menu-escondido');
+  }
+
+  // ---------- apresentação do site (o que é cada aba) ----------
+  const GUIA = [
+    ['visao', '📊 Visão geral', 'Status de todos os indicadores por DC, num quadro só.'],
+    ['ranking', '🏆 Ranking', 'Pontuação e disputa entre os DCs.'],
+    ['aovivo', '🔴 Ao vivo · Recebimento', 'Descarregamento e consolidação em tempo real.'],
+    ['expedicao', '🔴 Ao vivo · Expedição', 'Carregamento das rotas em tempo real.'],
+    ['offloading', '📦 OffLoading', 'Recebido x consolidado por DC.'],
+    ['noscan', '🔎 No Scan', 'Pedidos recebidos na DS sem registro no DC.'],
+    ['notracking', '📡 No Tracking', 'Pacotes sem rastreio.'],
+    ['erro', '⚠️ Erro de Triagem', 'Pacotes triados para o lugar errado.'],
+    ['eficiencia', '💪 Eficiência HC', 'Produtividade por pessoa.'],
+    ['pontualidade', '⏱️ Pontualidade', '% no prazo e backlog em piso.'],
+    ['lost', '❌ Lost', 'Pacotes extraviados.'],
+    ['sacas', '🧺 Controle de Sacas', 'Sacas enviadas x devolvidas por DC/DS.'],
+  ];
+  function apresentacao(forcar) {
+    if (!forcar && le('portal_guia') === '1') return;
+    if (document.querySelector('.guia-over')) return;
+    const over = el('div', 'guia-over');
+    const card = el('div', 'guia-card');
+    const x = el('button', 'guia-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Fechar');
+    card.append(x, el('h3', 'guia-tit', 'Portal de Indicadores — Nordeste II'), el('p', 'guia-sub', 'Um tour rápido: o que você encontra em cada aba.'));
+    const lista = el('div', 'guia-lista');
+    const fechar = () => { over.remove(); guarda('portal_guia', '1'); };
+    GUIA.forEach(([id, t, d]) => {
+      const it = el('button', 'guia-item'); it.type = 'button';
+      it.append(el('b', '', t), el('span', '', d));
+      it.addEventListener('click', () => { fechar(); const tb = document.querySelector(`.pt-tab[data-tab="${id}"]`); if (tb) tb.click(); });
+      lista.append(it);
+    });
+    const rod = el('div', 'guia-rod');
+    const ok = el('button', 'guia-ok', 'Começar'); ok.type = 'button'; ok.addEventListener('click', fechar);
+    rod.append(el('span', 'guia-dica', 'Dica: use o ☰ para recolher as abas e ampliar a tela.'), ok);
+    card.append(lista, rod);
+    over.append(card); raiz().append(over);
+    x.addEventListener('click', fechar);
+    over.addEventListener('click', (e) => { if (e.target === over) fechar(); });
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { fechar(); document.removeEventListener('keydown', esc); } });
+  }
+
   // ---------- liga tudo ----------
   let ultimaAba = null;
   function aoMudarAba() {
@@ -255,7 +343,13 @@
       const b = el('button', 'kp-abre'); b.type = 'button'; b.append(el('span', '', '🔍 Buscar'), el('kbd', '', 'Ctrl K'));
       b.addEventListener('click', abrirPaleta); marca.after(b);
     }
-    saudacao(); botoesTV(); botaoTopo(); esqueletos(document.body);
+    // botão de guia/apresentação no menu
+    if (marca && !document.querySelector('.guia-abre')) {
+      const g = el('button', 'guia-abre'); g.type = 'button'; g.append(el('span', '', '❔ Guia do portal'));
+      g.addEventListener('click', () => apresentacao(true)); marca.after(g);
+    }
+    saudacao(); botoesTV(); botaoTopo(); menuRecolher(); esqueletos(document.body);
+    setTimeout(() => apresentacao(false), 600);
     new MutationObserver((ms) => {
       for (const m of ms) {
         if (m.type === 'attributes') { aoMudarAba(); continue; }

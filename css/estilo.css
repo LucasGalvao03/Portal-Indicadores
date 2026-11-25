@@ -680,10 +680,11 @@ html, body { margin: 0; background: var(--color-bg); }
 .tv-btn:hover { transform: translateY(-2px); }
 .pt-sec-head:has(.tv-btn) { display: flex; gap: 16px; align-items: center; }
 body.modo-tv .pt { grid-template-columns: minmax(0, 1fr); }
-body.modo-tv .pt-side, body.modo-tv .pt-online, body.modo-tv .chat-btn, body.modo-tv .chat-painel, body.modo-tv .tv-btn, body.modo-tv .topo-btn, body.modo-tv .av-filtros .av-refresh, body.modo-tv .av-filtros .av-acordar { display: none !important; }
-body.modo-tv .pt-main { padding: 18px 26px; }
-body.modo-tv .av-painel { zoom: 1.18; }
-body.modo-tv .pt-sec-head h2 { font-size: 28px; }
+body.modo-tv .pt-side, body.modo-tv .pt-online, body.modo-tv .chat-btn, body.modo-tv .chat-painel, body.modo-tv .tv-btn, body.modo-tv .topo-btn, body.modo-tv .menu-toggle, body.modo-tv .av-filtros .av-refresh, body.modo-tv .av-filtros .av-acordar { display: none !important; }
+body.modo-tv .pt-main { padding: 14px 22px; align-items: center; }
+body.modo-tv .av-painel { margin-inline: auto; transform-origin: top center; }   /* o encaixe na tela (zoom) é calculado no JS */
+body.modo-tv .pt-sec-head { justify-content: center; }
+body.modo-tv .pt-sec-head h2 { font-size: 26px; }
 .tv-aviso { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1100; display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px; border-radius: 999px; background: rgba(0,26,94,.92); color: #fff; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
 .tv-live { font-weight: 700; color: #FFC000; }
 .tv-sair { font: inherit; font-size: 12px; color: #fff; background: rgba(255,255,255,.14); border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; }
@@ -696,3 +697,33 @@ body.modo-tv .pt-sec-head h2 { font-size: 28px; }
 /* cartões com leve "elevação" ao passar o mouse */
 @media (hover: hover) { .pt-card, .av-kpi, .av-rota { transition: transform .18s, box-shadow .18s; } .av-kpi:hover, .av-rota:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.08); } }
 @media (prefers-reduced-motion: reduce) { .ola, .ola-mao, .tt, .kp, .kp-fundo, .esqueleto::after { animation: none !important; } }
+
+/* ===== recolher/expandir a barra de abas ===== */
+.menu-recolhe { font: inherit; font-size: 12px; font-weight: 600; color: #cdd7f0; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; }
+.menu-recolhe:hover { background: rgba(255,255,255,.16); color: #fff; }
+.menu-toggle { display: none; position: fixed; top: 12px; left: 12px; z-index: 1200; width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--imile-marinho); color: #fff; font-size: 18px; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.28); }
+.menu-toggle:hover { filter: brightness(1.15); }
+body.menu-escondido .pt { grid-template-columns: minmax(0, 1fr); }
+body.menu-escondido .pt-side { display: none; }
+body.menu-escondido .menu-toggle { display: block; }
+
+/* ===== botão e pop-up de apresentação (guia) ===== */
+.guia-abre { font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 8px 10px; cursor: pointer; text-align: left; }
+.guia-abre:hover { background: rgba(255,255,255,.2); }
+.guia-over { position: fixed; inset: 0; z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(6,12,28,.6); backdrop-filter: blur(3px); animation: guiaFade .18s ease; }
+.guia-card { position: relative; width: min(560px, 100%); max-height: 88vh; overflow: auto; background: var(--color-panel); color: var(--color-fg); border: 1px solid var(--color-border-line); border-radius: 16px; padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(0,0,0,.4); animation: guiaUp .22s ease; }
+.guia-x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--color-fg-muted); font-size: 16px; cursor: pointer; }
+.guia-x:hover { background: var(--color-bg); color: var(--color-fg); }
+.guia-tit { margin: 0 30px 2px 0; font-size: 19px; font-weight: 700; }
+.guia-sub { margin: 0 0 14px; color: var(--color-fg-muted); font-size: 13px; }
+.guia-lista { display: grid; gap: 8px; }
+.guia-item { display: flex; flex-direction: column; gap: 2px; text-align: left; font: inherit; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.guia-item:hover { border-color: var(--imile-azul); background: color-mix(in srgb, var(--imile-azul) 8%, var(--color-bg)); }
+.guia-item b { font-size: 14px; }
+.guia-item span { color: var(--color-fg-muted); font-size: 12.5px; }
+.guia-rod { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.guia-dica { color: var(--color-fg-muted); font-size: 12px; }
+.guia-ok { font: inherit; font-size: 14px; font-weight: 600; color: #fff; background: var(--imile-azul); border: 0; border-radius: 9px; padding: 9px 18px; cursor: pointer; }
+.guia-ok:hover { filter: brightness(1.12); }
+@keyframes guiaFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes guiaUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
