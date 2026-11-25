@@ -176,7 +176,6 @@
     setTimeout(() => {
       const seg = document.querySelector(`#${secId} .av-filtros .pt-seg`);
       if (seg) { const bs = [...seg.querySelectorAll('button')]; const b = bs[dcIdx] || bs[0]; if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); }
-      setTimeout(ajustarTV, 80);
     }, 80);
   }
   function proximoTV() {
@@ -184,22 +183,9 @@
     const seg = s.querySelector('.av-filtros .pt-seg');
     const bs = seg ? [...seg.querySelectorAll('button')] : [];
     const i = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
-    if (i > -1 && i < bs.length - 1) { bs[i + 1].click(); setTimeout(ajustarTV, 80); }   // próximo DC da mesma seção
+    if (i > -1 && i < bs.length - 1) { bs[i + 1].click(); }   // próximo DC da mesma seção
     else { const si = TV_SECS.indexOf(s.id); tvIrPara(TV_SECS[(si + 1) % TV_SECS.length], 0); }  // acabou os DCs → troca de seção
   }
-  // encaixa todo o painel na tela da TV (sem rolar), reduzindo o zoom só quando precisa
-  function ajustarTV() {
-    if (!document.body.classList.contains('modo-tv')) return;
-    const s = secAoVivo(); if (!s) return;
-    const p = s.querySelector('.av-painel'); if (!p) return;
-    const cur = parseFloat(p.style.zoom) || 1;
-    const alturaReal = p.getBoundingClientRect().height / cur;
-    if (!alturaReal) return;
-    const dispo = window.innerHeight - 104;  // espaço do cabeçalho + barra do Modo TV
-    let f = Math.min(dispo / alturaReal, 1.12); f = Math.max(0.45, f);
-    if (Math.abs(f - cur) > 0.02) p.style.zoom = String(Math.round(f * 100) / 100);
-  }
-  window.addEventListener('resize', () => { if (document.body.classList.contains('modo-tv')) ajustarTV(); });
   function modoTV(ligar) {
     if (ligar) {
       if (!secAoVivo()) { const t = document.querySelector('.pt-tab[data-tab="aovivo"]'); if (t) t.click(); }
@@ -213,14 +199,13 @@
         const s = secAoVivo(), nome = s ? (TV_NOME[s.id] || '') : '';
         tvAviso.replaceChildren(el('span', 'tv-live', '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV')), el('span', '', `próximo em ${tvFalta}s`), sair);
       };
-      setTimeout(() => { tvIrPara('aovivo', 0); atualiza(); setTimeout(ajustarTV, 200); }, 60);
+      setTimeout(() => { tvIrPara('aovivo', 0); atualiza(); }, 60);
       atualiza();
-      tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } atualiza(); ajustarTV(); }, 1000);
+      tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } atualiza(); }, 1000);
     } else {
       document.body.classList.remove('modo-tv');
       clearInterval(tvTimer); tvTimer = null;
       if (tvAviso) { tvAviso.remove(); tvAviso = null; }
-      document.querySelectorAll('.av-painel').forEach((p) => { p.style.zoom = ''; });  // tira o encaixe da TV
       if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     }
   }
@@ -278,9 +263,9 @@
     abre.addEventListener('click', () => { document.body.classList.remove('menu-escondido'); guarda('portal_menu', '1'); });
     raiz().append(abre);
     const nav = document.querySelector('.pt-tabs');
-    const rec = el('button', 'menu-recolhe', '« Recolher'); rec.type = 'button'; rec.title = 'Esconder as abas para ampliar a visualização'; rec.setAttribute('aria-label', 'Recolher as abas');
+    const rec = el('button', 'menu-recolhe', '« Recolher abas'); rec.type = 'button'; rec.title = 'Esconder as abas para ampliar a visualização'; rec.setAttribute('aria-label', 'Recolher as abas');
     rec.addEventListener('click', () => { document.body.classList.add('menu-escondido'); guarda('portal_menu', '0'); });
-    if (nav) nav.after(rec);
+    if (nav) nav.before(rec); else raiz().prepend(rec);
     if (le('portal_menu') === '0') document.body.classList.add('menu-escondido');
   }
 

@@ -14,6 +14,9 @@
   const precisa = (texto) => { const i = idioma(); return i === 'bi' || (i === 'zh' ? !CJK.test(texto) : CJK.test(texto)); };
   const traduzidas = new Map();
   try { lido = Number(localStorage.getItem('portal_chat_lido')) || 0; } catch (e) { /* nada */ }
+  // meu nome (da sessão) para identificar minhas mensagens pelo nome — não depende do id do servidor
+  const meuNome = (() => { try { return (JSON.parse(localStorage.getItem('portal_sessao') || 'null') || {}).nome || null; } catch (e) { return null; } })();
+  const souEu = (m) => (meuNome ? m.nome === meuNome : !!m.meu);
 
   // ---------- faixa "online agora" ----------
   const faixa = document.getElementById('topo');
@@ -73,8 +76,9 @@
       ultimoId = m.id;
       const d = dia(m.quando);
       if (d !== ultimoDia) { ultimoDia = d; lista.append(el('div', 'chat-dia', d)); }
-      const b = el('div', 'chat-msg' + (m.meu ? ' meu' : '')); b.dataset.id = m.id;
-      const cab = el('div', 'chat-cab'); cab.append(el('b', '', m.meu ? 'Você' : m.nome), el('span', '', hora(m.quando)));
+      const meu = souEu(m);
+      const b = el('div', 'chat-msg' + (meu ? ' meu' : '')); b.dataset.id = m.id;
+      const cab = el('div', 'chat-cab'); cab.append(el('b', '', meu ? 'Você' : m.nome), el('span', '', hora(m.quando)));
       b.append(cab, el('div', 'chat-txt', m.texto));
       const tr = el('div', 'chat-tr'); tr.style.display = 'none';
       const lk = el('button', 'chat-trad', '🌐 Traduzir'); lk.type = 'button';
@@ -82,11 +86,11 @@
       b.append(tr, lk);
       if (m.traducao) traduzidas.set(m.id, m.traducao);
       lista.append(b);
-      if (!primeiraCarga && !m.meu && !aberto) window.dispatchEvent(new CustomEvent('portal:toast', {detail: {icone: '💬', titulo: m.nome, texto: m.texto, acao: () => abrir(true)}}));
+      if (!primeiraCarga && !meu && !aberto) window.dispatchEvent(new CustomEvent('portal:toast', {detail: {icone: '💬', titulo: m.nome, texto: m.texto, acao: () => abrir(true)}}));
       if (traduzidas.has(m.id) && (auto && precisa(m.texto))) mostrarTraducao(b, traduzidas.get(m.id));
       else if (auto && precisa(m.texto)) traduzir(m.id, b);
     });
-    if (fim || msgs.some((m) => m.meu)) lista.scrollTop = lista.scrollHeight;
+    if (fim || msgs.some((m) => souEu(m))) lista.scrollTop = lista.scrollHeight;
     if (aberto) marcarLido(); else badge();
     primeiraCarga = false;
   }

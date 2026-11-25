@@ -30,7 +30,7 @@ html, body { margin: 0; background: var(--color-bg); }
   --imile-azul: #0033A0; --imile-marinho: #001A5E; --imile-ouro: #FFC000;
   --pt-c1: #1E4FD8; --pt-c2: #F2A900; --pt-c3: #14A098; }
 .pt { display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100%; }
-.pt-side { background: var(--imile-marinho); color: #fff; display: flex; flex-direction: column; gap: var(--cds-gap-lg); padding: var(--cds-pad-xl) var(--cds-pad-md); position: sticky; top: 0; align-self: start; min-height: 100vh; box-sizing: border-box; }
+.pt-side { background: var(--imile-marinho); color: #fff; display: flex; flex-direction: column; gap: var(--cds-gap-lg); padding: var(--cds-pad-xl) var(--cds-pad-md); position: sticky; top: 0; align-self: start; min-height: 100vh; max-height: 100vh; overflow-y: auto; box-sizing: border-box; }
 .pt-brandbox { display: flex; flex-direction: column; gap: var(--cds-gap-sm); padding: 0 var(--cds-pad-sm); }
 .pt-logo { width: 116px; height: auto; display: block; }
 .pt-reg { font-size: var(--cds-font-size-caption); color: rgba(255,255,255,.72); border-top: 2px solid var(--imile-ouro); padding-top: var(--cds-pad-sm); width: fit-content; }
@@ -49,7 +49,7 @@ html, body { margin: 0; background: var(--color-bg); }
 .pt-lede b { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
 @container (max-width: 760px) {
   .pt { grid-template-columns: minmax(0, 1fr); }
-  .pt-side { position: static; min-height: 0; flex-direction: column; gap: var(--cds-gap-sm); padding: var(--cds-pad-md); }
+  .pt-side { position: static; min-height: 0; max-height: none; overflow: visible; flex-direction: column; gap: var(--cds-gap-sm); padding: var(--cds-pad-md); }
   .pt-brandbox { flex-direction: row; align-items: center; justify-content: space-between; }
   .pt-logo { width: 84px; }
   .pt-reg { border-top: 0; border-left: 2px solid var(--imile-ouro); padding: 0 0 0 var(--cds-pad-sm); }
@@ -681,10 +681,9 @@ html, body { margin: 0; background: var(--color-bg); }
 .pt-sec-head:has(.tv-btn) { display: flex; gap: 16px; align-items: center; }
 body.modo-tv .pt { grid-template-columns: minmax(0, 1fr); }
 body.modo-tv .pt-side, body.modo-tv .pt-online, body.modo-tv .chat-btn, body.modo-tv .chat-painel, body.modo-tv .tv-btn, body.modo-tv .topo-btn, body.modo-tv .menu-toggle, body.modo-tv .av-filtros .av-refresh, body.modo-tv .av-filtros .av-acordar { display: none !important; }
-body.modo-tv .pt-main { padding: 14px 22px; align-items: center; }
-body.modo-tv .av-painel { margin-inline: auto; transform-origin: top center; }   /* o encaixe na tela (zoom) é calculado no JS */
-body.modo-tv .pt-sec-head { justify-content: center; }
-body.modo-tv .pt-sec-head h2 { font-size: 26px; }
+body.modo-tv .pt-main { padding: 18px 26px; }
+body.modo-tv .av-painel { zoom: 1.18; }
+body.modo-tv .pt-sec-head h2 { font-size: 28px; }
 .tv-aviso { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 1100; display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px; border-radius: 999px; background: rgba(0,26,94,.92); color: #fff; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
 .tv-live { font-weight: 700; color: #FFC000; }
 .tv-sair { font: inherit; font-size: 12px; color: #fff; background: rgba(255,255,255,.14); border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; }
@@ -727,3 +726,10 @@ body.menu-escondido .menu-toggle { display: block; }
 .guia-ok:hover { filter: brightness(1.12); }
 @keyframes guiaFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes guiaUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ===== leve modernização da barra lateral ===== */
+.pt-side { background-image: linear-gradient(180deg, var(--imile-marinho) 0%, #00103a 100%); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
+.pt-side::-webkit-scrollbar { width: 8px; }
+.pt-side::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 8px; }
+.pt-side::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.32); }
+.pt-side::-webkit-scrollbar-track { background: transparent; }
