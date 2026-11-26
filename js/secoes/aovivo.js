@@ -27,6 +27,28 @@
     atualizando = false;
     dash.render();
   }
+  // ---- usado pelo Modo TV: quais DCs estão EM ANDAMENTO agora, por seção ----
+  function sitClasse(A, t, agora) {
+    if (!A) return null;
+    const m = (A.marcas || []).find((x) => x.tipo === t) || {};
+    const L = (A.minutos && A.minutos[t]) || [], ult = L.length ? L[L.length - 1][0] : null;
+    const atras = m.ate ? (ms(agora) - ms(m.ate)) / 60000 : null;
+    const semBipe = ult ? (ms(m.ate || agora) - ms(ult)) / 60000 : null;
+    if (m.erro && !/^(processando|ok)\|/.test(String(m.erro))) return 'erro';
+    if (atras == null || atras > 15) return 'cinza';
+    if (semBipe == null || semBipe > 10) return 'vermelho';
+    return 'verde';
+  }
+  window.aovivoAtivos = async function () {
+    await Promise.all(DCS.map(async (d) => { try { dados[d] = JSON.parse(await window.portalLer(aba(d))); } catch (e) { /* mantém o que já tem */ } }));
+    const agora = agoraL(), ativo = {aovivo: [], expedicao: []};
+    DCS.forEach((d) => {
+      const A = dados[d];
+      if (sitClasse(A, 'descarga', agora) === 'verde' || sitClasse(A, 'consolida', agora) === 'verde') ativo.aovivo.push(d);
+      if (sitClasse(A, 'carga', agora) === 'verde') ativo.expedicao.push(d);
+    });
+    return ativo;
+  };
   (async () => {
     await window.PORTAL_LOGIN;
     carregar(dcSel);

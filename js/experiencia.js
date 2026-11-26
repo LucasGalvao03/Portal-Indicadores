@@ -169,22 +169,32 @@
     const b = s.querySelector('.av-filtros .pt-seg button[aria-pressed="true"]');
     return b ? b.textContent.trim() : '';
   }
-  // Modo TV passa por: Recebimento PI2→CE1→PI3 → Expedição PI2→CE1→PI3 → recomeça. Sem ninguém mexer na TV.
-  function tvIrPara(secId, dcIdx) {
+  // Modo TV mostra só os DCs EM ANDAMENTO agora (recebimento e/ou expedição). Monta o rodízio de forma dinâmica.
+  function tvIr(secId, achaBtn) {
     const atual = secAoVivo();
     if (!atual || atual.id !== secId) { const t = document.querySelector(`.pt-tab[data-tab="${secId}"]`); if (t) t.click(); }
     setTimeout(() => {
       const seg = document.querySelector(`#${secId} .av-filtros .pt-seg`);
-      if (seg) { const bs = [...seg.querySelectorAll('button')]; const b = bs[dcIdx] || bs[0]; if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); }
+      if (seg) { const b = achaBtn(seg); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); }
     }, 80);
   }
-  function proximoTV() {
-    const s = secAoVivo(); if (!s) { tvIrPara('aovivo', 0); return; }
-    const seg = s.querySelector('.av-filtros .pt-seg');
-    const bs = seg ? [...seg.querySelectorAll('button')] : [];
-    const i = bs.findIndex((b) => b.getAttribute('aria-pressed') === 'true');
-    if (i > -1 && i < bs.length - 1) { bs[i + 1].click(); }   // próximo DC da mesma seção
-    else { const si = TV_SECS.indexOf(s.id); tvIrPara(TV_SECS[(si + 1) % TV_SECS.length], 0); }  // acabou os DCs → troca de seção
+  const tvIrPara = (secId, i) => tvIr(secId, (seg) => { const bs = [...seg.querySelectorAll('button')]; return bs[i] || bs[0]; });
+  const tvIrDC = (secId, dc) => tvIr(secId, (seg) => [...seg.querySelectorAll('button')].find((x) => x.textContent.trim() === dc));
+  let tvSlots = [], tvIdx = -1, tvSemOp = false;
+  async function tvRefresh() {
+    if (typeof window.aovivoAtivos !== 'function') { tvSlots = []; return; }
+    try {
+      const at = await window.aovivoAtivos(), s = [];
+      (at.aovivo || []).forEach((dc) => s.push({sec: 'aovivo', dc}));
+      (at.expedicao || []).forEach((dc) => s.push({sec: 'expedicao', dc}));
+      tvSlots = s; tvSemOp = s.length === 0;
+    } catch (e) { /* mantém a lista anterior */ }
+  }
+  async function proximoTV() {
+    await tvRefresh();
+    if (!tvSlots.length) { if (!secAoVivo()) tvIrPara('aovivo', 0); return; }  // nada em operação: não fica trocando à toa
+    tvIdx = (tvIdx + 1) % tvSlots.length;
+    const slot = tvSlots[tvIdx]; tvIrDC(slot.sec, slot.dc);
   }
   function modoTV(ligar) {
     if (ligar) {
@@ -197,9 +207,10 @@
       tvFalta = TV_SEG;
       const atualiza = () => {
         const s = secAoVivo(), nome = s ? (TV_NOME[s.id] || '') : '';
-        tvAviso.replaceChildren(el('span', 'tv-live', '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV')), el('span', '', `próximo em ${tvFalta}s`), sair);
+        const titulo = tvSemOp ? '📺 Aguardando operação…' : '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV');
+        tvAviso.replaceChildren(el('span', 'tv-live', titulo), el('span', '', `próximo em ${tvFalta}s`), sair);
       };
-      setTimeout(() => { tvIrPara('aovivo', 0); atualiza(); }, 60);
+      tvIdx = -1; setTimeout(() => { proximoTV().then(atualiza); }, 60);
       atualiza();
       tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } atualiza(); }, 1000);
     } else {
