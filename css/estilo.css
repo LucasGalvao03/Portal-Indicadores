@@ -730,6 +730,28 @@ body.menu-escondido .menu-toggle { display: block; }
 /* ===== selo "última atualização" por relatório ===== */
 .atz-selo { align-self: center; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--color-fg-muted); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 11px; white-space: nowrap; }
 
+/* ===== Cenário logístico de fundo (leve) ===== */
+.cenario { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.cen-svg { width: 100%; height: 100%; display: block; }
+.pt-wrap { position: relative; z-index: 1; }            /* conteúdo sempre acima do cenário */
+.cen-rota { stroke-dasharray: 9 15; animation: cenFluxo 7s linear infinite; }
+.cen-r2 { animation-duration: 10s; animation-direction: reverse; }
+.cen-r3 { animation-duration: 13s; }
+@keyframes cenFluxo { to { stroke-dashoffset: -288; } }
+.cen-anel { animation: cenPulso 4.5s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes cenPulso { 0% { transform: scale(.5); opacity: .22; } 100% { transform: scale(1.7); opacity: 0; } }
+.cen-pac { animation: cenDrift 26s linear infinite; }
+.cen-p2 { animation-duration: 34s; animation-delay: -8s; }
+.cen-p3 { animation-duration: 30s; animation-delay: -16s; }
+@keyframes cenDrift { from { transform: translateX(-80px); } to { transform: translateX(1520px); } }
+@media (prefers-reduced-motion: reduce) { .cen-rota, .cen-anel, .cen-pac { animation: none !important; } }
+
+/* ===== polimento sutil (cara de produto) ===== */
+.pt-card { transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease; }
+.pt-card:hover { box-shadow: 0 10px 26px rgba(0, 26, 94, .10); border-color: color-mix(in srgb, var(--imile-azul) 22%, var(--color-border-line)); }
+.pt-head { position: relative; }
+.pt-head::after { content: ""; position: absolute; left: 0; bottom: -1px; width: 56px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--imile-azul), var(--imile-ouro)); }
+
 /* ===== Painel do Desenvolvedor ===== */
 .adm-abre { display: block; width: 100%; margin: 2px auto; font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 9px 10px; cursor: pointer; text-align: center; }
 .adm-abre:hover { background: rgba(255,255,255,.2); }
