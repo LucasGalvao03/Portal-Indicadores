@@ -14,6 +14,52 @@
   const prim = (nome) => (nome || '—').split(' ').slice(0, 2).join(' ');
   const NOMES = {visao: 'Visão geral', ranking: 'Ranking', aovivo: 'Ao vivo · Receb.', expedicao: 'Ao vivo · Exped.', offloading: 'OffLoading', noscan: 'No Scan', notracking: 'No Tracking', erro: 'Erro de Triagem', eficiencia: 'Eficiência HC', pontualidade: 'Pontualidade', lost: 'Lost', sacas: 'Controle de Sacas', inicio: 'Início'};
   const nomeAba = (a) => NOMES[a] || a;
+  const REPNOME = {descarga: 'Descarregamento', consolida: 'Consolidação', carga: 'Expedição'};
+  const DCORD = ['DC-PI2', 'DC-CE1', 'DC-PI3'];
+  const msQ = (s) => { if (!s) return 0; const d = new Date(s); return isNaN(d) ? 0 : d.getTime(); };
+  const ha = (ms) => { if (!ms) return '—'; const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'agora' : m < 60 ? 'há ' + m + ' min' : 'há ' + Math.floor(m / 60) + 'h' + p2(m % 60); };
+  const erroReal = (e) => !!e && !/^(processando|ok)\|/.test(String(e));
+
+  function secaoRobo(D) {
+    const sec = el('div', 'adm-sec');
+    const marcas = D.robo || [];
+    const maxQ = Math.max(0, ...marcas.map((m) => msQ(m.quando)));
+    const erros = marcas.filter((m) => erroReal(m.erro));
+    let cls, txt;
+    if (erros.length) { cls = 'adm-r-erro'; txt = 'Com erro'; }
+    else if (maxQ && Date.now() - maxQ < 15 * 60000) { cls = 'adm-r-ok'; txt = 'Ativo'; }
+    else { cls = 'adm-r-parado'; txt = maxQ ? 'Parado' : 'Sem dados'; }
+    const cab = el('div', 'adm-robo-cab');
+    cab.append(el('h3', 'adm-h', '🤖 Robô ao vivo'), el('span', 'adm-rbadge ' + cls, txt + (maxQ ? ' · últ. ' + ha(maxQ) : '')));
+    sec.append(cab);
+
+    const tab = el('table', 'adm-tab');
+    const th = el('tr'); ['Relatório', 'DC', 'Atualizou', 'Puxou até', 'Situação'].forEach((t) => th.append(el('th', '', t))); tab.append(th);
+    const mapa = {}; marcas.forEach((m) => { mapa[m.tipo + '|' + m.dc] = m; });
+    ['descarga', 'consolida', 'carga'].forEach((t) => DCORD.forEach((dc) => {
+      const m = mapa[t + '|' + dc]; if (!m) return;
+      const q = msQ(m.quando), velho = !q || Date.now() - q > 15 * 60000;
+      let sit, scls;
+      if (erroReal(m.erro)) { sit = m.erro.length > 42 ? m.erro.slice(0, 42) + '…' : m.erro; scls = 'adm-t-erro'; }
+      else if (velho) { sit = 'parado'; scls = 'adm-t-low'; }
+      else { sit = 'ok'; scls = 'adm-t-ok'; }
+      const tr = el('tr');
+      tr.append(el('td', '', REPNOME[t] || t), el('td', 'adm-c', dc.replace('DC-', '')), el('td', '', ha(q)), el('td', 'adm-c', m.ate ? m.ate.slice(11, 16) : '—'));
+      const td5 = el('td'); td5.append(el('span', 'adm-tag ' + scls, sit)); tr.append(td5);
+      tab.append(tr);
+    }));
+    sec.append(tab);
+
+    if (txt !== 'Ativo') {
+      const dica = el('div', 'adm-dica');
+      dica.textContent = erros.length
+        ? 'Há erro nas voltas (ex.: TOKEN EXPIRADO). No PC: pegue um token novo (F12 no dc.imile.com → authorization), cole no config.py e reabra os .bat.'
+        : 'O robô não está atualizando. No PC: reabra iniciar_robo_ao_vivo.bat e iniciar_robo_expedicao.bat; se mostrar TOKEN EXPIRADO, atualize o token no config.py.';
+      sec.append(dica);
+    }
+    if (D.acordar && D.acordar.em) sec.append(el('div', 'adm-robo-ac', 'Último "Acordar" pedido ' + ha(msQ(D.acordar.em))));
+    return sec;
+  }
 
   function agrega(D) {
     const agora = Date.now();
@@ -44,6 +90,8 @@
   function render() {
     const A = agrega(D);
     const body = painel.querySelector('.adm-body'); body.replaceChildren();
+
+    body.append(secaoRobo(D)); // monitor do robô no topo
 
     // cards de resumo
     const cards = el('div', 'adm-cards');
