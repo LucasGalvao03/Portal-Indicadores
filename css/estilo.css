@@ -768,8 +768,15 @@ body.menu-escondido .menu-toggle { display: block; }
 @media (prefers-reduced-motion: reduce) { .cen-rota, .cen-anel, .cen-pac { animation: none !important; } }
 
 /* ===== polimento sutil (cara de produto) ===== */
-.pt-card { transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease; }
-.pt-card:hover { box-shadow: 0 10px 26px rgba(0, 26, 94, .10); border-color: color-mix(in srgb, var(--imile-azul) 22%, var(--color-border-line)); }
+.pt-card { transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease; }
+@media (hover: hover) { .pt-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0, 26, 94, .12); border-color: color-mix(in srgb, var(--imile-azul) 24%, var(--color-border-line)); } }
+/* cascata de entrada estendida a todos os cards */
+.pt-sec.anima .pt-card:nth-of-type(4) { animation-delay: .21s; }
+.pt-sec.anima .pt-card:nth-of-type(5) { animation-delay: .28s; }
+.pt-sec.anima .pt-card:nth-of-type(6) { animation-delay: .35s; }
+.pt-sec.anima .pt-card:nth-of-type(7) { animation-delay: .42s; }
+.pt-sec.anima .pt-card:nth-of-type(8) { animation-delay: .49s; }
+.pt-sec.anima .pt-card:nth-of-type(n+9) { animation-delay: .54s; }
 .pt-head { position: relative; }
 .pt-head::after { content: ""; position: absolute; left: 0; bottom: -1px; width: 56px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--imile-azul), var(--imile-ouro)); }
 
