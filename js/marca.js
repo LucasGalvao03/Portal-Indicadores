@@ -22,7 +22,14 @@
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'pt-ico'); svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
     svg.innerHTML = ICO[k];
-    b.insertBefore(svg, b.firstChild);
+    const dot = b.querySelector('.av-dot'); // abas "ao vivo": o ponto vermelho vira badge no canto do ícone
+    if (dot) {
+      const wrap = document.createElement('span'); wrap.className = 'pt-ico-wrap';
+      b.insertBefore(wrap, b.firstChild);
+      wrap.appendChild(svg); wrap.appendChild(dot); dot.classList.add('av-dot-badge');
+    } else {
+      b.insertBefore(svg, b.firstChild);
+    }
   });
 
   // ---- banner com caminhão na Visão Geral ----

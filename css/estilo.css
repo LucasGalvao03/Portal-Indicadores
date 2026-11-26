@@ -735,6 +735,8 @@ body.menu-escondido .menu-toggle { display: block; }
 .pt-ico { width: 17px; height: 17px; flex: none; opacity: .85; }
 .pt-ico * { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .pt-tab[aria-selected="true"] .pt-ico { opacity: 1; }
+.pt-ico-wrap { position: relative; display: inline-flex; flex: none; }
+.av-dot-badge { position: absolute; top: -3px; right: -3px; margin: 0 !important; width: 7px; height: 7px; }
 
 /* ===== banner (hero) da Visão Geral ===== */
 .hero { position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 18px; padding: 20px 26px; min-height: 128px; display: flex; align-items: center; color: #fff; background: linear-gradient(120deg, var(--imile-marinho) 0%, var(--imile-azul) 78%); box-shadow: 0 12px 30px rgba(0, 26, 94, .18); }
