@@ -181,6 +181,7 @@
   const tvIrPara = (secId, i) => tvIr(secId, (seg) => { const bs = [...seg.querySelectorAll('button')]; return bs[i] || bs[0]; });
   const tvIrDC = (secId, dc) => tvIr(secId, (seg) => [...seg.querySelectorAll('button')].find((x) => x.textContent.trim() === dc));
   let tvSlots = [], tvIdx = -1, tvSemOp = false;
+  let tvComercial = null, tvSelo = null, tvComAtivo = false, tvCheck = 0;
   async function tvRefresh() {
     if (typeof window.aovivoAtivos !== 'function') { tvSlots = []; return; }
     try {
@@ -190,9 +191,45 @@
       tvSlots = s; tvSemOp = s.length === 0;
     } catch (e) { /* mantém a lista anterior */ }
   }
+  // ----- "comercial" no intervalo: sem operação, roda o vídeo da empresa; volta pro painel quando a operação retorna -----
+  function montaComercial() {
+    if (tvComercial) return;
+    tvComercial = el('div', 'tv-intervalo');
+    const v = el('video'); v.src = 'img/intervalo.mp4'; v.muted = true; v.loop = true; v.preload = 'auto';
+    v.setAttribute('playsinline', ''); v.setAttribute('muted', '');
+    tvComercial.append(v); raiz().append(tvComercial);
+    tvSelo = el('div', 'tv-selo'); raiz().append(tvSelo);
+  }
+  function mostraSelo(txt, cls, pisca) {
+    if (!tvSelo) return;
+    tvSelo.className = 'tv-selo ' + cls;
+    tvSelo.replaceChildren(...(pisca ? [el('span', 'pisca')] : []), el('span', '', txt));
+    requestAnimationFrame(() => tvSelo.classList.add('show'));
+    clearTimeout(tvSelo._t); tvSelo._t = setTimeout(() => tvSelo.classList.remove('show'), 2600);
+  }
+  function entraComercial() {        // painel → comercial (fade)
+    if (tvComAtivo) return;
+    montaComercial(); tvComAtivo = true; tvCheck = 8;
+    const v = tvComercial.querySelector('video');
+    try { v.currentTime = 0; } catch (e) {}
+    v.play().catch(() => {});
+    requestAnimationFrame(() => tvComercial.classList.add('on'));
+    mostraSelo('⏸ INTERVALO', 'intervalo', false);
+  }
+  function saiComercial() {           // comercial → painel (fade), ao voltar a operação
+    if (!tvComAtivo) return;
+    tvComAtivo = false;
+    if (tvComercial) {
+      tvComercial.classList.remove('on');
+      const v = tvComercial.querySelector('video');
+      setTimeout(() => { try { v.pause(); } catch (e) {} }, 600);
+    }
+    mostraSelo('● AO VIVO', 'aovivo', true);
+  }
   async function proximoTV() {
     await tvRefresh();
-    if (!tvSlots.length) { if (!secAoVivo()) tvIrPara('aovivo', 0); return; }  // nada em operação: não fica trocando à toa
+    if (!tvSlots.length) { entraComercial(); return; }  // nada em operação → comercial da empresa
+    saiComercial();                                     // operação voltou → corta o comercial
     tvIdx = (tvIdx + 1) % tvSlots.length;
     const slot = tvSlots[tvIdx]; tvIrDC(slot.sec, slot.dc);
   }
@@ -204,18 +241,29 @@
       if (alvo.requestFullscreen && !document.fullscreenElement) alvo.requestFullscreen().catch(() => {});
       tvAviso = el('div', 'tv-aviso'); raiz().append(tvAviso);
       const sair = el('button', 'tv-sair', '✕ Sair do Modo TV'); sair.type = 'button'; sair.addEventListener('click', () => modoTV(false));
-      tvFalta = TV_SEG;
+      tvFalta = TV_SEG; tvComAtivo = false;
       const atualiza = () => {
+        if (tvComAtivo) {  // em intervalo: barra discreta, mantendo o botão Sair acessível
+          tvAviso.replaceChildren(el('span', 'tv-live', '⏸ Intervalo'), el('span', '', 'comercial · aguardando operação'), sair);
+          return;
+        }
         const s = secAoVivo(), nome = s ? (TV_NOME[s.id] || '') : '';
-        const titulo = tvSemOp ? '📺 Aguardando operação…' : '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV');
+        const titulo = '📺 ' + (nome ? nome + (dcAtual() ? ' · ' + dcAtual() : '') : 'Modo TV');
         tvAviso.replaceChildren(el('span', 'tv-live', titulo), el('span', '', `próximo em ${tvFalta}s`), sair);
       };
       tvIdx = -1; setTimeout(() => { proximoTV().then(atualiza); }, 60);
       atualiza();
-      tvTimer = setInterval(() => { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } atualiza(); }, 1000);
+      tvTimer = setInterval(() => {
+        if (tvComAtivo) { tvCheck--; if (tvCheck <= 0) { tvCheck = 8; proximoTV(); } }  // comercial: espia a operação a cada ~8s
+        else { tvFalta--; if (tvFalta <= 0) { tvFalta = TV_SEG; proximoTV(); } }
+        atualiza();
+      }, 1000);
     } else {
       document.body.classList.remove('modo-tv');
       clearInterval(tvTimer); tvTimer = null;
+      tvComAtivo = false;
+      if (tvComercial) { tvComercial.remove(); tvComercial = null; }
+      if (tvSelo) { tvSelo.remove(); tvSelo = null; }
       if (tvAviso) { tvAviso.remove(); tvAviso = null; }
       if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     }
