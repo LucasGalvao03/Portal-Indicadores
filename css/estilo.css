@@ -462,10 +462,10 @@ html, body { margin: 0; background: var(--color-bg); }
 .av-ult.meio::before { content: "● "; color: #FFC000; }
 .av-ult.parado::before { content: "● "; color: #ff6b6b; }
 .av-ult.calmo::before { content: "● "; color: #b8c0d0; }
-.av-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+.av-kpis { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 12px; }
 .av-dcs:not(.um) .av-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container (max-width: 1050px) { .av-dcs .av-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.av-kpi { background: var(--color-bg); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.av-kpi { background: var(--color-bg); border-radius: 8px; padding: 8px 10px; text-align: center; flex: 1 1 148px; max-width: 210px; }
 .av-kpi-h { font-size: 11px; color: var(--color-fg-muted); }
 .av-kpi-v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; }
 .av-kpi-s { font-size: 10.5px; color: var(--color-fg-muted); }
@@ -475,7 +475,7 @@ html, body { margin: 0; background: var(--color-bg); }
 .av-kpi.meio .av-kpi-v { color: #c88a00; }
 .av-kpi.ruim .av-kpi-v { color: #d64545; }
 .av-sub { padding: 0 12px; font-size: 12px; font-weight: 600; color: var(--color-fg-muted); }
-.av-graf { padding: 0 8px; }
+.av-graf { padding: 0 8px; min-height: 0; }
 .av-leg { display: flex; gap: 14px; justify-content: center; padding: 2px 0 10px; font-size: 11px; color: var(--color-fg-muted); }
 .av-leg span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .av-leg .l1::before { background: var(--pt-c1); }
@@ -614,6 +614,16 @@ html, body { margin: 0; background: var(--color-bg); }
 .av-ranks.dois { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container (max-width: 1050px) { .av-ranks.dois { grid-template-columns: minmax(0, 1fr); } }
 .av-patio-vazio { margin: 4px 12px 12px; }
+/* faixa de veículos finalizados passando na tela */
+.av-marquee { overflow: hidden; margin: 2px 12px 12px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+.av-marq-trilho { display: inline-flex; gap: 10px; white-space: nowrap; animation: av-desliza 45s linear infinite; will-change: transform; }
+.av-marquee:hover .av-marq-trilho { animation-play-state: paused; }
+.av-fchip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 999px; font-size: 12.5px; }
+.av-fplaca { font-weight: 700; font-family: var(--font-anthropic-mono, ui-monospace, monospace); letter-spacing: .4px; background: var(--imile-azul); color: #fff; padding: 1px 7px; border-radius: 5px; font-size: 11.5px; }
+.av-frota { color: var(--color-fg-muted); max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.av-fn { font-weight: 600; font-variant-numeric: tabular-nums; }
+@keyframes av-desliza { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .av-marq-trilho { animation: none; } .av-marquee { overflow-x: auto; } }
 
 /* ===================== experiência ===================== */
 /* troca de tema com círculo (View Transitions) */

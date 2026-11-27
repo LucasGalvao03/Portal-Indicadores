@@ -77,6 +77,7 @@
     return {n, L, ini: L[0][0], fim: L[L.length - 1][0], total: (ms(L[L.length - 1][0]) - ms(L[0][0])) / 60000, parado, ult30};
   }
 
+  // gráfico de LINHA estiloso (linha suave + área com degradê + pontos); mesma assinatura de antes
   function grafico(box, des, con, de, ate, um) {
     box.replaceChildren();
     const span = (ms(ate) - ms(de)) / 60000, passo = span <= 240 ? 15 : 60;
@@ -87,29 +88,41 @@
     if (!mp.size) { box.append(el('p', 'pt-note', 'Sem bipes neste intervalo.')); return; }
     const ks = [...mp.keys()].sort(), pts = [];
     for (let b = ks[0]; b <= ks[ks.length - 1]; b = soma(b, passo)) pts.push(mp.get(b) || {b, d: 0, c: 0});
-    const W = Math.max(320, box.clientWidth || 700), H = 230, ml = 8, mr = 8, mt = 22, mb = 34;
-    const x = d3.scaleBand().domain(pts.map((p) => p.b)).range([ml, W - mr]).paddingInner(0.25).paddingOuter(0.1);
-    const y = d3.scaleLinear().domain([0, d3.max(pts, (p) => Math.max(p.d, p.c)) * 1.18 || 1]).range([H - mb, mt]);
+    const W = Math.max(320, box.clientWidth || 700), H = um ? 160 : 208, ml = 16, mr = 16, mt = 26, mb = 30;
+    const x = d3.scalePoint().domain(pts.map((p) => p.b)).range([ml, W - mr]).padding(0.5);
+    const y = d3.scaleLinear().domain([0, (d3.max(pts, (p) => Math.max(p.d, p.c)) || 1) * 1.2]).range([H - mb, mt]);
     const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%').attr('role', 'img').attr('aria-label', 'Pacotes por período');
+    const uid = 'av' + Math.random().toString(36).slice(2, 8), defs = svg.append('defs');
+    const k = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',') + 'k' : String(n));
+    const xx = (p) => x(p.b);
     // virada do dia
     pts.forEach((p, i) => { if (i && p.b.slice(0, 10) !== pts[i - 1].b.slice(0, 10)) {
-      const xx = x(p.b) - x.step() * x.paddingInner() / 2;
-      svg.append('line').attr('x1', xx).attr('x2', xx).attr('y1', mt - 10).attr('y2', H - mb).style('stroke', 'var(--color-fg-muted)').attr('stroke-dasharray', '3 4');
-      svg.append('text').attr('x', xx + 4).attr('y', mt - 2).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(dm(p.b));
+      const vx = (x(p.b) + x(pts[i - 1].b)) / 2;
+      svg.append('line').attr('x1', vx).attr('x2', vx).attr('y1', mt - 12).attr('y2', H - mb).style('stroke', 'var(--color-fg-muted)').attr('stroke-dasharray', '3 4');
+      svg.append('text').attr('x', vx + 4).attr('y', mt - 4).style('fill', 'var(--color-fg-muted)').style('font-size', '10px').text(dm(p.b));
     } });
-    const bw = um ? x.bandwidth() : x.bandwidth() / 2;
-    const k = (n) => (n >= 1000 ? (n / 1000).toFixed(1).replace('.', ',') + 'k' : String(n));
-    const g = svg.append('g').selectAll('g').data(pts).join('g').attr('transform', (p) => `translate(${x(p.b)},0)`);
-    g.append('rect').attr('width', bw - 1).attr('y', (p) => y(p.d)).attr('height', (p) => y(0) - y(p.d)).attr('rx', 2).style('fill', 'var(--pt-c1)');
-    if (!um) g.append('rect').attr('x', bw).attr('width', bw - 1).attr('y', (p) => y(p.c)).attr('height', (p) => y(0) - y(p.c)).attr('rx', 2).style('fill', 'var(--pt-c2)');
-    if (bw >= 13) {
-      g.append('text').attr('class', 'off-rot').attr('x', bw / 2).attr('y', (p) => y(p.d) - 4).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)').style('font-size', '10px').text((p) => (p.d ? k(p.d) : ''));
-      if (!um) g.append('text').attr('class', 'off-rot').attr('x', bw * 1.5).attr('y', (p) => y(p.c) - 4).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)').style('font-size', '10px').text((p) => (p.c ? k(p.c) : ''));
-    }
-    const cada = Math.max(1, Math.ceil(pts.length / Math.floor((W - ml - mr) / 38)));
-    g.filter((p, i) => i % cada === 0).append('text').attr('x', x.bandwidth() / 2).attr('y', H - 14).attr('text-anchor', 'middle').style('fill', 'var(--color-fg-muted)').style('font-size', '10px')
+    const area = (key) => d3.area().x(xx).y0(y(0)).y1((p) => y(p[key])).curve(d3.curveMonotoneX);
+    const linha = (key) => d3.line().x(xx).y((p) => y(p[key])).curve(d3.curveMonotoneX);
+    const serie = (key, cor, nome) => {
+      const gid = uid + key, g = defs.append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+      g.append('stop').attr('offset', '0%').attr('stop-color', cor).attr('stop-opacity', 0.33);
+      g.append('stop').attr('offset', '100%').attr('stop-color', cor).attr('stop-opacity', 0);
+      svg.append('path').datum(pts).attr('d', area(key)).attr('fill', `url(#${gid})`);
+      svg.append('path').datum(pts).attr('d', linha(key)).attr('fill', 'none').attr('stroke', cor).attr('stroke-width', 2.4).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+      const pontos = svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', xx).attr('cy', (p) => y(p[key])).attr('r', 2.9).attr('fill', 'var(--color-panel)').attr('stroke', cor).attr('stroke-width', 1.8);
+      pontos.append('title').text((p) => um ? `${dm(p.b)} ${p.b.slice(11, 16)} · carregados ${int(p.d)}` : `${dm(p.b)} ${p.b.slice(11, 16)} · descarregados ${int(p.d)} · consolidados ${int(p.c)}`);
+    };
+    if (!um) serie('c', 'var(--pt-c2)');
+    serie('d', 'var(--pt-c1)');
+    // rótulos de valor da série principal, quando há espaço
+    const passoPx = pts.length > 1 ? (x(pts[1].b) - x(pts[0].b)) : (W - ml - mr);
+    if (passoPx >= 34) svg.append('g').selectAll('text').data(pts.filter((p) => p.d)).join('text')
+      .attr('x', xx).attr('y', (p) => y(p.d) - 9).attr('text-anchor', 'middle').attr('class', 'off-rot').style('fill', 'var(--color-fg)').style('font-size', '10px').text((p) => k(p.d));
+    // eixo x
+    const cada = Math.max(1, Math.ceil(pts.length / Math.floor((W - ml - mr) / 40)));
+    svg.append('g').selectAll('text').data(pts.filter((p, i) => i % cada === 0)).join('text')
+      .attr('x', xx).attr('y', H - 10).attr('text-anchor', 'middle').style('fill', 'var(--color-fg-muted)').style('font-size', '10px')
       .text((p) => (passo === 60 ? p.b.slice(11, 13) + 'h' : p.b.slice(11, 16)));
-    g.append('title').text((p) => um ? `${dm(p.b)} ${p.b.slice(11, 16)} · carregados ${int(p.d)}` : `${dm(p.b)} ${p.b.slice(11, 16)} · descarregados ${int(p.d)} · consolidados ${int(p.c)}`);
   }
 
   function ranking(titulo, linhas, total) {
@@ -161,8 +174,6 @@
       kpi('Pacotes carregados', int(car.n), car.ini ? `${quando(car.ini)} → ${quando(car.fim)}` : '', 'des'),
       kpi('Sacas', int(sacas), 'das rotas do período', 'con'),
       kpi('Rotas', int(rotas.length), fim ? '' : `${rotas.filter((r) => estado(r).cls === 'agora').length} carregando agora`),
-      kpi('Veículos', int(placas.size), 'placas diferentes'),
-      kpi('Ritmo', int(car.ult30 * 2) + '/h', 'últimos 30 min do intervalo'),
       kpi('Tempo total', hhmm(car.total), '1º ao último bipe'),
       kpi('Tempo parado', hhmm(car.parado), `pausas > ${pm} min`),
       kpi('Pacotes/hora', liquido > 0 ? int(car.n / (liquido / 60)) : '—', 'no tempo líquido'),
@@ -188,6 +199,18 @@
         g.append(x);
       });
       c.append(g);
+    }
+    // veículos já finalizados passando na tela (faixa deslizante)
+    const fins = fim ? rotas : rotas.filter((r) => estado(r).cls === 'fim');
+    if (fins.length) {
+      c.append(el('div', 'av-sub', `Veículos finalizados (${fins.length})`));
+      const fx = el('div', 'av-marquee'), trilho = el('div', 'av-marq-trilho');
+      const fchip = (r) => { const z = el('div', 'av-fchip');
+        z.append(el('span', 'av-fplaca', r.placas || 'sem placa'), el('span', 'av-frota', r.rota), el('span', 'av-fn', `📦 ${int(r.nInt)}`));
+        z.title = `${r.rota} · ${r.placas || 'sem placa'} · ${int(r.nInt)} pacotes · ${int(r.sacas || 0)} sacas`;
+        return z; };
+      [...fins, ...fins].forEach((r) => trilho.append(fchip(r))); // dobrado = rolagem contínua
+      fx.append(trilho); c.append(fx);
     }
     const gr = el('div', 'pt-chart av-graf');
     const leg = el('div', 'av-leg'); leg.append(el('span', 'l1', 'Pacotes carregados'));
@@ -322,7 +345,6 @@
       kpi('Descarregados', int(des.n), des.ini ? `${quando(des.ini)} → ${quando(des.fim)}` : '', 'des'),
       kpi('Consolidados', int(con.n), con.ini ? `${quando(con.ini)} → ${quando(con.fim)}` : '', 'con'),
       kpi('Consolidado x Descarregado', taxa == null ? '—' : PT.fmt(taxa, 'pct0'), '', taxa == null ? '' : taxa >= 0.9 ? 'bom' : taxa >= 0.8 ? 'meio' : 'ruim'),
-      kpi('Ritmo', int(des.ult30 * 2) + '/h', 'descarga · últimos 30 min do intervalo'),
       kpi('Tempo total', hhmm(des.total), 'descarga · 1º ao último bipe'),
       kpi('Tempo parado', hhmm(des.parado), `pausas > ${pm} min`),
       kpi('Tempo líquido', hhmm(liquido), ''),
