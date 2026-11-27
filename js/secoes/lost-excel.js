@@ -9,7 +9,8 @@
   const br = (d) => d.split('-').reverse().join('/');
   const dm = (d) => d.slice(8, 10) + '/' + d.slice(5, 7);
   const brl = (v) => PT.fmt(v || 0, 'brl');
-  let ini = null, fim = null, dcSel = 'Todos';
+  let ini = null, fim = null, dcSel = 'Todos', perModo = 'faixa'; // 'faixa' = De/Até · 'datas' = vários dias avulsos
+  const perSt = PERIODO.estado();
 
   const cnt = (R, de, ate, dc) => R.filter((r) => r.data >= de && r.data <= ate && (!dc || r.dc === dc));
   const qtd = (rows) => d3.sum(rows, (r) => r.n), val = (rows) => d3.sum(rows, (r) => r.valor);
@@ -69,13 +70,16 @@
     const ultima = datas[datas.length - 1];
     let de = ini || window.PORTAL_MES.ini(ultima), ate = fim || ultima;
     if (de > ate) [de, ate] = [ate, de];
+    if (perModo === 'datas') { const rr = PERIODO.deAte('datas', datas, perSt); de = rr.de; ate = rr.ate; }
+    const cobre = perModo === 'datas' ? (d) => perSt.dias.has(d) : (d) => d >= de && d <= ate;
     const dcs = dcSel === 'Todos' ? DCS : [dcSel];
     const F = (rows) => rows.filter((r) => dcs.includes(r.dc));
-    const per = F(cnt(R, de, ate));
-    const total = qtd(per), valor = val(per), dias = Math.round((Date.parse(ate) - Date.parse(de)) / 864e5) + 1;
+    const per = F(R.filter((r) => cobre(r.data)));
+    const total = qtd(per), valor = val(per);
+    const dias = perModo === 'datas' ? (perSt.dias.size || 1) : Math.round((Date.parse(ate) - Date.parse(de)) / 864e5) + 1;
     const semAtual = terca(ultima), semFech = soma(semAtual, -7), semAnt = soma(semAtual, -14);
     const nSemFech = qtd(F(cnt(R, semFech, soma(semFech, 6)))), nSemAnt = qtd(F(cnt(R, semAnt, soma(semAnt, 6)))), nAtual = qtd(F(cnt(R, semAtual, ultima)));
-    const lista = L.lista ? L.lista.filter((r) => dcs.includes(r.dc) && r.data >= de && r.data <= ate) : null;
+    const lista = L.lista ? L.lista.filter((r) => dcs.includes(r.dc) && cobre(r.data)) : null;
 
     // filtros
     const ctl = el('div', 'hc-filtros');
@@ -90,7 +94,15 @@
     const bx = el('button', 'nt-baixar', lista ? `⬇ Baixar base (${PT.fmt(lista.length, 'int')} pacotes)` : '⬇ Baixar base (carregando…)');
     bx.type = 'button'; bx.disabled = !lista;
     bx.addEventListener('click', () => lista && baixar(lista, de, ate));
-    ctl.append(ldc, campo('Data inicial', de, (v) => { ini = v; }), campo('Data final', ate, (v) => { fim = v; }), at, bx);
+    const modoSeg = el('div', 'pt-seg');
+    [['faixa', 'Intervalo'], ['datas', 'Datas']].forEach(([v, t]) => {
+      const b = el('button', '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(perModo === v));
+      b.addEventListener('click', () => { perModo = v; dash.render(); }); modoSeg.append(b);
+    });
+    ctl.append(ldc, modoSeg);
+    if (perModo === 'datas') ctl.append(PERIODO.painel('datas', datas, perSt, () => dash.render()));
+    else ctl.append(campo('Data inicial', de, (v) => { ini = v; }), campo('Data final', ate, (v) => { fim = v; }), at);
+    ctl.append(bx);
     const info = el('p', 'pd-info', `Em andamento: ${dm(semAtual)}–${dm(soma(semAtual, 6))}  ·  Última fechada: ${dm(semFech)}–${dm(soma(semFech, 6))}`);
 
     // cartões do topo
@@ -108,8 +120,8 @@
     const g = dash.data('off_todos'), rec = g.status === 'ok' ? g.data : [];
     const porDc = el('div', 'lo-dcs');
     dcs.forEach((dc) => {
-      const r = cnt(R, de, ate, dc), n = qtd(r), v = val(r);
-      const recebido = d3.sum(rec.filter((x) => x.dc === dc && x.data >= de && x.data <= ate), (x) => x.recebido_off || 0);
+      const r = R.filter((x) => cobre(x.data) && x.dc === dc), n = qtd(r), v = val(r);
+      const recebido = d3.sum(rec.filter((x) => x.dc === dc && cobre(x.data)), (x) => x.recebido_off || 0);
       const f1 = qtd(cnt(R, semFech, soma(semFech, 6), dc)), f0 = qtd(cnt(R, semAnt, soma(semAnt, 6), dc));
       const p = el('div', 'lo-dc'); p.style.setProperty('--cor', COR[dc]);
       const grid = el('div', 'lo-dc-g');

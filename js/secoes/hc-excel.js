@@ -10,7 +10,8 @@
   const curto = (d) => { const [a, m, dd] = d.split('-'); return `${dd}/${m}/${a.slice(2)}`; };
   const dec1 = (v) => (v == null ? '-' : PT.fmt(v, 'dec1'));
   const int = (v) => (v ? PT.fmt(v, 'int') : '-');
-  let ini = null, fim = null, dia = null; // filtros (null = padrão)
+  let ini = null, fim = null, dia = null, perModo = 'faixa'; // filtros (null = padrão) · perModo: 'faixa' De/Até | 'datas' vários dias
+  const perSt = PERIODO.estado();
   let visao = 'periodo'; // 'periodo' = painel do período · 'resumo' = eficiência do dia e resumo por período
 
   // pega metas do Excel, se tiver, senão usa as do texto da aba
@@ -21,8 +22,8 @@
   };
 
   // soma de um período: volume, pessoas, dias com operação e produtividade
-  const resumo = (H, de, ate, dc) => {
-    const rows = H.filter((r) => r.data >= de && r.data <= ate && (!dc || r.dc === dc) && r.volume_hc > 0);
+  const resumo = (H, dentro, dc) => {
+    const rows = H.filter((r) => dentro(r.data) && (!dc || r.dc === dc) && r.volume_hc > 0);
     const vol = d3.sum(rows, (r) => r.volume_hc), pes = d3.sum(rows, (r) => r.pessoas);
     // dias com operação: do DC; no Nordeste II, o maior entre os DCs (como no Excel)
     const dias = dc ? new Set(rows.map((r) => r.data)).size : d3.max(DCS, (d) => new Set(rows.filter((r) => r.dc === d).map((r) => r.data)).size) || 0;
@@ -61,11 +62,11 @@
     th.append(r1, r2); t.append(th);
     const tb = el('tbody', '');
     periodos.forEach(([de, ate, rotDe, rotAte]) => {
-      const tot = resumo(H, de, ate);
+      const tot = resumo(H, (d) => d >= de && d <= ate);
       if (!tot.vol) return; // período sem operação: não mostra a linha de traços
       const tr = el('tr', '');
       tr.append(el('td', '', rotDe), el('td', '', rotAte));
-      DCS.forEach((dc) => { const r = resumo(H, de, ate, dc); tr.append(el('td', 'num', int(r.vol)), el('td', 'num', int(r.pes)), el('td', 'num hc-prod', dec1(r.prod))); });
+      DCS.forEach((dc) => { const r = resumo(H, (d) => d >= de && d <= ate, dc); tr.append(el('td', 'num', int(r.vol)), el('td', 'num', int(r.pes)), el('td', 'num hc-prod', dec1(r.prod))); });
       tr.append(el('td', 'num hc-ne hc-prod', dec1(tot.prod)));
       tb.append(tr);
     });
@@ -83,6 +84,8 @@
     const ultima = datas[datas.length - 1];
     let de = ini || terca(ultima), ate = fim || ultima;
     if (de > ate) [de, ate] = [ate, de];
+    if (perModo === 'datas') { const rr = PERIODO.deAte('datas', datas, perSt); de = rr.de; ate = rr.ate; }
+    const cobre = perModo === 'datas' ? (d) => perSt.dias.has(d) : (d) => d >= de && d <= ate;
     const diaSel = datas.includes(dia) ? dia : ultima;
 
     // filtros: data inicial e final, e atalhos
@@ -92,7 +95,7 @@
       i.addEventListener('change', () => { if (i.value) { set(i.value); dash.render(); } });
       l.append(el('span', '', rot), i); return l;
     };
-    ctl.append(campo('Data inicial', de, (v) => { ini = v; }), campo('Data final', ate, (v) => { fim = v; }));
+    const cDe = campo('Data inicial', de, (v) => { ini = v; }), cAte = campo('Data final', ate, (v) => { fim = v; });
     const atalhos = el('div', 'pt-seg');
     const semAt = terca(ultima);
     [['Semana atual', semAt, ultima], ['Semana anterior', soma(semAt, -7), soma(semAt, -1)], ['Mês', window.PORTAL_MES.ini(ultima), ultima]].forEach(([t, a, b]) => {
@@ -107,16 +110,23 @@
       bt.addEventListener('click', () => { visao = v; dash.render(); });
       vis.append(bt);
     });
-    ctl.append(atalhos, vis, el('span', 'hc-ult', `Última data na base: ${br(ultima)}`));
+    const modoSeg = el('div', 'pt-seg');
+    [['faixa', 'Intervalo'], ['datas', 'Datas']].forEach(([v, t]) => {
+      const bt = el('button', '', t); bt.type = 'button'; bt.setAttribute('aria-pressed', String(perModo === v));
+      bt.addEventListener('click', () => { perModo = v; dash.render(); }); modoSeg.append(bt);
+    });
+    const ult = el('span', 'hc-ult', `Última data na base: ${br(ultima)}`);
+    if (perModo === 'datas') ctl.append(modoSeg, PERIODO.painel('datas', datas, perSt, () => dash.render()), vis, ult);
+    else ctl.append(cDe, cAte, atalhos, modoSeg, vis, ult);
 
     // cartões
-    const tot = resumo(H, de, ate);
+    const tot = resumo(H, cobre);
     const cards = el('div', 'hc-cards');
     [['Volume Recebido', int(tot.vol)], ['Qtd de Pessoas (HC-dia)', int(tot.pes)], ['Média HC por dia', dec1(tot.media)], ['Produtividade (pct/pessoa)', dec1(tot.prod)]]
       .forEach(([t, v]) => { const c = el('div', 'hc-card'); c.append(el('div', 'hc-card-h', t), el('div', 'hc-card-v', v)); cards.append(c); });
 
     // tabela por DC com posição
-    const porDc = DCS.map((dc) => ({dc, ...resumo(H, de, ate, dc)}));
+    const porDc = DCS.map((dc) => ({dc, ...resumo(H, cobre, dc)}));
     const ordem = porDc.filter((r) => r.prod != null).sort((a, b) => b.prod - a.prod).map((r) => r.dc);
     const maxProd = d3.max(porDc, (r) => r.prod || 0) || 1;
     const t = el('table', 'hc-tbl');
@@ -150,7 +160,7 @@
     td.innerHTML = '<thead><tr><th>DC</th><th>Volume Recebido</th><th>Qtd de Pessoas</th><th>Produtividade (pct/pessoa)</th><th>Meta</th><th>Desafio</th><th>Status</th></tr></thead>';
     const tbd = el('tbody', '');
     DCS.forEach((dc) => {
-      const r = resumo(H, diaSel, diaSel, dc), [meta, des] = metaDe(dc);
+      const r = resumo(H, (d) => d === diaSel, dc), [meta, des] = metaDe(dc);
       const st = r.prod == null ? ['Sem operação', ''] : r.prod >= des ? ['Desafio atingido', 'pt-good'] : r.prod >= meta ? ['Dentro da meta', 'hc-meta'] : ['Fora da meta', 'pt-bad'];
       const tr = el('tr', '');
       tr.append(el('td', 'hc-dc', dc), el('td', 'num', int(r.vol)), el('td', 'num', int(r.pes)), el('td', 'num hc-prod', dec1(r.prod)), el('td', 'num', PT.fmt(meta, 'int')), el('td', 'num', PT.fmt(des, 'int')), el('td', 'hc-st ' + st[1], st[0]));

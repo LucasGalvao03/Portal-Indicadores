@@ -12,11 +12,12 @@
   const hora = (t) => (t ? t.slice(11, 16) : '—');
   const META_PRAZO = 0.93; // até 7% de rotas atrasadas
   let diaEscolhido = null, periodo = 'dia', visao = 'dc', dcRotas = 'DC-PI2', ordem = 'inicio', metaMin = 60, tolerancia = 0;
+  const perSt = PERIODO.estado();
 
-  // dados de um DC num período
-  function doPeriodo(C, dc, de, ate) {
-    const rotas = C.rotas.filter((r) => r.dc === dc && r.data >= de && r.data <= ate);
-    const dias = C.dia.filter((r) => r.dc === dc && r.data >= de && r.data <= ate);
+  // dados de um DC num período (dentro = predicado de data)
+  function doPeriodo(C, dc, dentro) {
+    const rotas = C.rotas.filter((r) => r.dc === dc && dentro(r.data));
+    const dias = C.dia.filter((r) => r.dc === dc && dentro(r.data));
     const pac = d3.sum(rotas, (r) => r.pacotes), sac = d3.sum(rotas, (r) => r.sacas);
     const ini = d3.min(rotas, (r) => r.primeiro), fim = d3.max(rotas, (r) => r.ultimo);
     // duração da expedição: do 1º ao último bipe de cada dia, somando os dias
@@ -40,8 +41,8 @@
     return v;
   };
 
-  function painelDC(C, dc, de, ate, antDe, antAte) {
-    const a = doPeriodo(C, dc, de, ate), b = doPeriodo(C, dc, antDe, antAte);
+  function painelDC(C, dc, cobre, cobreAnt, de, ate) {
+    const a = doPeriodo(C, dc, cobre), b = doPeriodo(C, dc, cobreAnt);
     const p = el('div', 'pd-dc ' + (a.n ? '' : 'vazio'));
     const tit = de === ate ? `Dia ref. ${dm(ate)}` : `${dm(de)} a ${dm(ate)}`;
     p.append(el('div', 'pd-dc-h', `${dc}  ·  ${tit}:  ${a.n ? `${hora(a.ini)} → ${hora(a.fim)}  (${hm(a.dur)})` : 'sem expedição'}`));
@@ -68,8 +69,8 @@
   }
 
   // visão "Rotas e DS" de um DC
-  function rotasEDs(C, dc, de, ate) {
-    const a = doPeriodo(C, dc, de, ate);
+  function rotasEDs(C, dc, cobre, de, ate) {
+    const a = doPeriodo(C, dc, cobre);
     const linhas = a.rotas.map((r) => {
       const dur = min(r.ultimo) - min(r.primeiro);
       const atraso = r.prevista && r.real ? min(r.real) - min(r.prevista) - tolerancia : null;
@@ -80,7 +81,7 @@
     linhas.sort(ord[ordem]);
     const atrasadas = linhas.filter((l) => l.atraso != null && l.atraso > 0);
     const aguard = linhas.filter((l) => l.veiculo && !l.real).length, semId = linhas.filter((l) => !l.veiculo).length;
-    const dss = C.ds.filter((r) => r.dc === dc && r.data >= de && r.data <= ate);
+    const dss = C.ds.filter((r) => r.dc === dc && cobre(r.data));
     const porDs = d3.rollups(dss, (v) => ({pacotes: d3.sum(v, (r) => r.pacotes), sacas: d3.sum(v, (r) => r.sacas), rotas: d3.sum(v, (r) => r.rotas), dur: d3.sum(v, (r) => min(r.ultimo) - min(r.primeiro))}), (r) => r.ds)
       .map(([ds, v]) => ({ds, ...v})).sort((x, y) => y.pacotes - x.pacotes);
 
@@ -143,9 +144,13 @@
     if (!C || !C.rotas.length) { box.replaceChildren(el('p', 'pt-note', dash.data('diario').status === 'ok' ? 'O detalhe do carregamento ainda está sendo carregado no banco.' : 'Carregando…')); return; }
     const datas = [...new Set(C.rotas.map((r) => r.data))].sort();
     const dia = datas.includes(diaEscolhido) ? diaEscolhido : datas[datas.length - 1];
-    const de = periodo === 'dia' ? dia : periodo === 'semana' ? terca(dia) : window.PORTAL_MES.ini(dia), ate = dia;
+    let de, ate;
+    if (periodo === 'intervalo' || periodo === 'datas') { const rr = PERIODO.deAte(periodo, datas, perSt); de = rr.de; ate = rr.ate; }
+    else { de = periodo === 'dia' ? dia : periodo === 'semana' ? terca(dia) : window.PORTAL_MES.ini(dia); ate = dia; }
     const n = Math.round((Date.parse(ate) - Date.parse(de)) / 864e5) + 1;
     const antDe = soma(de, -n), antAte = soma(de, -1);
+    const cobre = PERIODO.cobre(periodo, perSt, de, ate);
+    const cobreAnt = (d) => d >= antDe && d <= antAte;
 
     // filtros
     const ctl = el('div', 'pt-controls pd-filtros');
@@ -155,8 +160,10 @@
     sel.addEventListener('change', () => { diaEscolhido = sel.value; dash.render(); });
     lab.append(sel);
     const seg = (opcoes, atual, set) => { const s = el('div', 'pt-seg'); opcoes.forEach(([v, t]) => { const b = el('button', '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(atual === v)); b.addEventListener('click', () => { set(v); dash.render(); }); s.append(b); }); return s; };
-    ctl.append(lab, seg([['dia', 'Dia'], ['semana', 'Semana (ter→seg)'], ['mes', 'Mês']], periodo, (v) => { periodo = v; }),
-      seg([['dc', 'Por DC'], ['rotas', 'Rotas e DS']], visao, (v) => { visao = v; }));
+    const segPer = seg([['dia', 'Dia'], ['semana', 'Semana (ter→seg)'], ['mes', 'Mês']], periodo, (v) => { periodo = v; });
+    PERIODO.segExtra(periodo, (v) => { periodo = v; dash.render(); }).forEach((b) => segPer.append(b));
+    ctl.append(lab, segPer, seg([['dc', 'Por DC'], ['rotas', 'Rotas e DS']], visao, (v) => { visao = v; }));
+    const pnl = PERIODO.painel(periodo, datas, perSt, () => dash.render()); if (pnl) ctl.append(pnl);
     const info = el('p', 'pd-info', `Período: ${br(de)}${de === ate ? ' (1 dia)' : ` a ${br(ate)} (${n} dias)`}  ·  ▲▼ comparado com o período anterior  ·  Parado = pausas de mais de 30 min`);
 
     if (visao === 'rotas') {
@@ -168,11 +175,11 @@
       const num = (v, set) => { const i = el('input', 'dash-select pd-num'); i.type = 'number'; i.min = 0; i.value = v; i.addEventListener('change', () => { set(Number(i.value) || 0); dash.render(); }); return i; };
       const rot = (t, c) => { const l = el('label', '', t + ' '); l.append(c); return l; };
       ctl2.append(rot('DC', sDc), rot('Ordenar', sOrd), rot('Meta (min)', num(metaMin, (v) => { metaMin = v; })), rot('Tolerância (min)', num(tolerancia, (v) => { tolerancia = v; })));
-      box.replaceChildren(ctl, info, ctl2, rotasEDs(C, dcRotas, de, ate));
+      box.replaceChildren(ctl, info, ctl2, rotasEDs(C, dcRotas, cobre, de, ate));
       return;
     }
     const dcs = el('div', 'pd-dcs');
-    DCS.forEach((dc) => dcs.append(painelDC(C, dc, de, ate, antDe, antAte)));
+    DCS.forEach((dc) => dcs.append(painelDC(C, dc, cobre, cobreAnt, de, ate)));
     box.replaceChildren(ctl, info, dcs);
   });
 })();
