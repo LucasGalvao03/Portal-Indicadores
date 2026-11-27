@@ -14,7 +14,7 @@ window.PORTAL_RECALCULA = (st, SNAP) => {
     'OffLoading': ['Taxa de Consolidação', 'pct', 'maior', 'pp'],
     'No Scan': ['Taxa de No Scan', 'pct', 'menor', 'pp'],
     'No Tracking': ['No Tracking 4+ dias', 'int', 'menor', 'pedidos'],
-    'Erro de Triagem': ['Taxa de Erro de Triagem', 'pct3', 'menor', 'pp'],
+    'Erro de Triagem': ['Taxa de Erro de Triagem', 'pct2', 'menor', 'pp'],
     'Eficiência HC': ['Produtividade por pessoa', 'int', 'maior', 'pac/pessoa'],
     'Pontualidade de Transporte': ['Pontualidade de Transporte', 'pct', 'menor', 'pp'],
   };

@@ -2,7 +2,7 @@
 (() => {
   const per = () => dash.params().periodo || 'Semanal';
   const IND = [
-    ['Produtividade por pessoa', 'int'], ['Taxa de No Scan', 'pct2'], ['Taxa de Erro de Triagem', 'pct3'],
+    ['Produtividade por pessoa', 'int'], ['Taxa de No Scan', 'pct2'], ['Taxa de Erro de Triagem', 'pct2'],
     ['No Tracking 4+ dias', 'int'], ['Taxa de Consolidação', 'pct'], ['Pontualidade de Transporte', 'pct'],
   ];
   document.querySelectorAll('#ranking-seg button').forEach((b) => b.addEventListener('click', () => dash.setParams({periodo: b.dataset.periodo})));
