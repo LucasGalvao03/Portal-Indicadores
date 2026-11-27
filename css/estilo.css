@@ -700,7 +700,7 @@ body.modo-tv .pt-sec-head h2 { font-size: 28px; }
 /* comercial no intervalo do Modo TV (fade entra/sai) */
 .tv-intervalo { position: fixed; inset: 0; z-index: 1050; background: #000; opacity: 0; pointer-events: none; transition: opacity .55s ease; }
 .tv-intervalo.on { opacity: 1; }
-.tv-intervalo video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tv-intervalo video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .tv-selo { position: fixed; left: 50%; top: 26px; transform: translateX(-50%) translateY(-8px); z-index: 1090; display: inline-flex; align-items: center; gap: 9px; padding: 8px 18px; border-radius: 999px; font-weight: 800; letter-spacing: .6px; font-size: 14px; color: #fff; background: rgba(0,26,94,.92); box-shadow: 0 10px 30px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .4s ease, transform .4s ease; }
 .tv-selo.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .tv-selo.intervalo { background: rgba(120,80,0,.92); color: #FFC000; }
