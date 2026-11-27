@@ -116,8 +116,9 @@
     serie('d', 'var(--pt-c1)');
     // rótulos de valor da série principal, quando há espaço
     const passoPx = pts.length > 1 ? (x(pts[1].b) - x(pts[0].b)) : (W - ml - mr);
-    if (passoPx >= 34) svg.append('g').selectAll('text').data(pts.filter((p) => p.d)).join('text')
-      .attr('x', xx).attr('y', (p) => y(p.d) - 9).attr('text-anchor', 'middle').attr('class', 'off-rot').style('fill', 'var(--color-fg)').style('font-size', '10px').text((p) => k(p.d));
+    const rotulos = (key, cor) => svg.append('g').selectAll('text').data(pts.filter((p) => p[key])).join('text')
+      .attr('x', xx).attr('y', (p) => y(p[key]) - 9).attr('text-anchor', 'middle').attr('class', 'off-rot').style('fill', cor || 'var(--color-fg)').style('font-size', '10px').text((p) => k(p[key]));
+    if (passoPx >= 34) { if (!um) rotulos('c', 'var(--pt-c2)'); rotulos('d', um ? null : 'var(--pt-c1)'); }
     // eixo x
     const cada = Math.max(1, Math.ceil(pts.length / Math.floor((W - ml - mr) / 40)));
     svg.append('g').selectAll('text').data(pts.filter((p, i) => i % cada === 0)).join('text')
