@@ -39,26 +39,21 @@
       return wrap;
     }
     if (periodo === 'datas') {
-      const wrap = el('div', 'per-cx per-datas');
-      const bt = el('button', 'per-bt'); bt.type = 'button';
-      const rot = () => (bt.textContent = '🗓 ' + (st.dias.size ? st.dias.size + (st.dias.size === 1 ? ' data' : ' datas') : 'Escolher dias') + ' ▾');
-      rot();
-      const pop = el('div', 'per-pop'); pop.hidden = true;
+      const wrap = el('div', 'per-datas'); // bloco inline (linha inteira), sempre visível
       const acoes = el('div', 'per-acoes');
       const bTudo = el('button', '', 'Marcar todas'); bTudo.type = 'button';
       const bLim = el('button', '', 'Limpar'); bLim.type = 'button';
       bTudo.addEventListener('click', () => { datas.forEach((d) => st.dias.add(d)); aoMudar(); });
       bLim.addEventListener('click', () => { st.dias.clear(); aoMudar(); });
-      acoes.append(bTudo, bLim);
-      const lista = el('div', 'per-lista');
+      acoes.append(el('span', 'per-tit', 'Escolha os dias:'), bTudo, bLim,
+        el('span', 'per-conta', st.dias.size ? `${st.dias.size} selecionada(s)` : 'nenhuma selecionada'));
+      const grid = el('div', 'per-grid');
       [...datas].reverse().forEach((d) => {
-        const lb = el('label', 'per-chk'); const c = el('input'); c.type = 'checkbox'; c.checked = st.dias.has(d);
-        c.addEventListener('change', () => { c.checked ? st.dias.add(d) : st.dias.delete(d); rot(); aoMudar(); });
-        lb.append(c, el('span', '', br(d))); lista.append(lb);
+        const lb = el('label', 'per-chip' + (st.dias.has(d) ? ' on' : '')); const c = el('input'); c.type = 'checkbox'; c.checked = st.dias.has(d);
+        c.addEventListener('change', () => { c.checked ? st.dias.add(d) : st.dias.delete(d); aoMudar(); });
+        lb.append(c, el('span', '', br(d))); grid.append(lb);
       });
-      pop.append(acoes, lista);
-      bt.addEventListener('click', () => { pop.hidden = !pop.hidden; });
-      wrap.append(bt, pop);
+      wrap.append(acoes, grid);
       return wrap;
     }
     return null;
