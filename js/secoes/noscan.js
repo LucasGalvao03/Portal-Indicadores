@@ -8,7 +8,8 @@
   const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
   const rotDia = (d) => `${DIAS[new Date(d + 'T00:00:00Z').getUTCDay()]} ${PT.dData(d)}`;
   let diaEscolhido = null; // null = último dia com dados
-  let periodo = 'dia';     // 'dia' ou 'semana' (da terça até o dia escolhido)
+  let periodo = 'dia';     // 'dia' | 'semana' | 'intervalo' (De/Até) | 'datas' (vários dias)
+  const perSt = PERIODO.estado();
 
   const total = (ns, de, ate, dc) => {
     let rec = 0, sem = 0;
@@ -65,12 +66,12 @@
   }
 
   // DS com pedidos sem registro no período, as 5 maiores de cada DC
-  function barrasDS(box, ns, ini, dia) {
+  function barrasDS(box, ns, cobre) {
     box.replaceChildren();
     const linhas = [];
     for (const dc of DCS) {
       const m = new Map();
-      for (const r of ns) if (r.dc === dc && r.data >= ini && r.data <= dia && r.sem > 0) m.set(r.ds, (m.get(r.ds) || 0) + r.sem);
+      for (const r of ns) if (r.dc === dc && cobre(r.data) && r.sem > 0) m.set(r.ds, (m.get(r.ds) || 0) + r.sem);
       [...m].sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([ds, v]) => linhas.push({dc, ds, v}));
     }
     if (!linhas.length) { box.append(el('p', 'pt-note', 'Nenhuma DS com pedido sem registro no período.')); return; }
@@ -102,8 +103,12 @@
     if (!ns) { box.replaceChildren(el('p', 'pt-note', dash.data('diario').status === 'ok' ? 'Sem dados por DS do No Scan.' : 'Carregando…')); return; }
     const datas = [...new Set(ns.filter((r) => r.rec > 0).map((r) => r.data))].sort();
     if (!datas.length) { box.replaceChildren(el('p', 'pt-note', 'Sem dados.')); return; }
-    const dia = datas.includes(diaEscolhido) ? diaEscolhido : datas[datas.length - 1];
-    const ini = periodo === 'semana' ? terca(dia) : dia;
+    const dia0 = datas.includes(diaEscolhido) ? diaEscolhido : datas[datas.length - 1];
+    let ini, dia;
+    if (periodo === 'intervalo' || periodo === 'datas') { const r = PERIODO.deAte(periodo, datas, perSt); ini = r.de; dia = r.ate; }
+    else { dia = dia0; ini = periodo === 'semana' ? terca(dia) : dia; }
+    const cobre = PERIODO.cobre(periodo, perSt, ini, dia);
+    const totP = (dc) => { let rec = 0, sem = 0; for (const r of ns) if (cobre(r.data) && (!dc || r.dc === dc)) { rec += r.rec; sem += r.sem; } return {rec, sem, taxa: rec ? sem / rec : null}; };
 
     // filtros: dia e período (como a linha do tempo do Excel)
     const ctl = el('div', 'pt-controls');
@@ -118,16 +123,19 @@
       b.addEventListener('click', () => { periodo = v; dash.render(); });
       seg.append(b);
     });
+    PERIODO.segExtra(periodo, (v) => { periodo = v; dash.render(); }).forEach((b) => seg.append(b));
     const L = window.PORTAL_NOSCAN_LISTA;
-    const lista = L ? L.filter((r) => DCS.includes(r.dc) && r.data >= ini && r.data <= dia) : null;
+    const lista = L ? L.filter((r) => DCS.includes(r.dc) && cobre(r.data)) : null;
     const bx = el('button', 'nt-baixar', lista ? `⬇ Baixar base (${PT.fmt(lista.length, 'int')} pedidos)` : '⬇ Baixar base (carregando…)');
     bx.type = 'button'; bx.disabled = !lista;
     bx.addEventListener('click', () => lista && baixar(lista, ini, dia));
+    const pnl = PERIODO.painel(periodo, datas, perSt, () => dash.render());
     ctl.append(lab, seg, bx);
+    if (pnl) ctl.append(pnl);
 
     // cartões do topo (Nordeste II, no período)
-    const t = total(ns, ini, dia);
-    const diasOp = datas.filter((d) => d >= ini && d <= dia).length || 1;
+    const t = totP();
+    const diasOp = (periodo === 'datas' ? perSt.dias.size : datas.filter((d) => cobre(d)).length) || 1;
     const top = el('div', 'off-tops ns-tops');
     const cartao = (tit, val) => { const c = el('div', 'off-top'); c.append(el('div', 'off-top-h', tit), el('div', 'off-top-v', val)); return c; };
     top.append(
@@ -141,10 +149,11 @@
     DCS.forEach((dc) => dcs.append(painelDC(ns, dc, ini, dia)));
 
     const card = el('div', 'pt-card');
-    card.append(el('h3', '', `DS com pedidos sem registro · ${periodo === 'dia' ? PT.dDataAno(dia) : `${PT.dData(ini)} a ${PT.dData(dia)}`}`), el('p', 'pt-sub', 'As 5 DSs com mais pedidos sem registro em cada DC.'));
+    const rotPer = periodo === 'dia' ? PT.dDataAno(dia) : periodo === 'datas' ? `${perSt.dias.size} dia(s) escolhido(s)` : `${PT.dData(ini)} a ${PT.dData(dia)}`;
+    card.append(el('h3', '', `DS com pedidos sem registro · ${rotPer}`), el('p', 'pt-sub', 'As 5 DSs com mais pedidos sem registro em cada DC.'));
     const gb = el('div', 'pt-chart');
     card.append(gb);
     box.replaceChildren(ctl, top, dcs, card);
-    requestAnimationFrame(() => barrasDS(gb, ns, ini, dia));
+    requestAnimationFrame(() => barrasDS(gb, ns, cobre));
   });
 })();

@@ -7,19 +7,20 @@
   const soma = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return ISO(t); };
   const terca = (d) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 5) % 7)); return ISO(t); };
   let diaEscolhido = null, periodo = 'dia';
+  const perSt = PERIODO.estado();
 
-  const somaErros = (E, de, ate, dc) => E.reduce((s, r) => s + (r.data >= de && r.data <= ate && (!dc || r.dc === dc) ? r.n : 0), 0);
-  const somaReceb = (R, de, ate, dc) => R.reduce((s, r) => s + (r.data >= de && r.data <= ate && (!dc || r.dc === dc) ? r.n : 0), 0);
+  const somaErros = (E, dentro, dc) => E.reduce((s, r) => s + (dentro(r.data) && (!dc || r.dc === dc) ? r.n : 0), 0);
+  const somaReceb = (R, dentro, dc) => R.reduce((s, r) => s + (dentro(r.data) && (!dc || r.dc === dc) ? r.n : 0), 0);
 
-  function baixar(E, de, ate) {
+  function baixar(E, cobre, de, ate) {
     const P = window.PORTAL_ERRO.pacotes;
     let cab, linhas;
     if (P && P.length) { // um pacote por linha, com o waybill
       cab = ['Data', 'DC', 'Waybill', 'DS que recebeu', 'DS correta', 'Cliente'];
-      linhas = P.filter((r) => r.data >= de && r.data <= ate).map((r) => [PT.dDataAno(r.data), r.dc, r.waybill ? `="${r.waybill}"` : '', r.ds_recebeu, r.ds_destino, r.cliente]);
+      linhas = P.filter((r) => cobre(r.data)).map((r) => [PT.dDataAno(r.data), r.dc, r.waybill ? `="${r.waybill}"` : '', r.ds_recebeu, r.ds_destino, r.cliente]);
     } else { // enquanto a lista não existir: o resumo por DS
       cab = ['Data', 'DC', 'DS que recebeu', 'DS correta', 'Erros'];
-      linhas = E.filter((r) => r.data >= de && r.data <= ate).map((r) => [PT.dDataAno(r.data), r.dc, r.ds_recebeu, r.ds_destino, r.n]);
+      linhas = E.filter((r) => cobre(r.data)).map((r) => [PT.dDataAno(r.data), r.dc, r.ds_recebeu, r.ds_destino, r.n]);
     }
     const q = (v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const csv = '﻿' + [cab, ...linhas].map((l) => l.map(q).join(';')).join('\r\n');
@@ -31,15 +32,15 @@
   }
 
   // tabela de um DC: DS que recebeu (agrupada) × DS correta × erros
-  function painelDC(E, R, dc, de, ate, totalErros) {
-    const n = somaErros(E, de, ate, dc), rec = somaReceb(R, de, ate, dc);
+  function painelDC(E, R, dc, cobre, totalErros) {
+    const n = somaErros(E, cobre, dc), rec = somaReceb(R, cobre, dc);
     const p = el('div', 'er-dc'); p.style.setProperty('--cor', COR[dc]);
     const h = el('div', 'er-dc-h');
     const l1 = el('div', 'er-dc-l1'); l1.append(el('b', '', dc), el('b', 'er-dc-n', PT.fmt(n, 'int')));
     h.append(l1, el('div', 'er-dc-l2', `Rate ${PT.fmt(rec ? n / rec : 0, 'pct2')}   ·   ${PT.fmt(totalErros ? n / totalErros : 0, 'pct')} dos erros`));
     p.append(h);
     const m = new Map();
-    E.filter((r) => r.dc === dc && r.data >= de && r.data <= ate).forEach((r) => { const k = r.ds_recebeu + '|' + r.ds_destino; m.set(k, (m.get(k) || 0) + r.n); });
+    E.filter((r) => r.dc === dc && cobre(r.data)).forEach((r) => { const k = r.ds_recebeu + '|' + r.ds_destino; m.set(k, (m.get(k) || 0) + r.n); });
     const grupos = new Map();
     [...m].forEach(([k, v]) => { const [a, b] = k.split('|'); if (!grupos.has(a)) grupos.set(a, []); grupos.get(a).push([b, v]); });
     const ordem = [...grupos].sort((a, b) => d3.sum(b[1], (x) => x[1]) - d3.sum(a[1], (x) => x[1]));
@@ -67,7 +68,10 @@
     const datas = [...new Set([...E.map((r) => r.data), ...R.map((r) => r.data)])].sort();
     if (!datas.length) { box.replaceChildren(el('p', 'pt-note', 'Sem dados.')); return; }
     const dia = datas.includes(diaEscolhido) ? diaEscolhido : datas[datas.length - 1];
-    const de = periodo === 'semana' ? terca(dia) : dia, ate = dia;
+    let de, ate;
+    if (periodo === 'intervalo' || periodo === 'datas') { const r = PERIODO.deAte(periodo, datas, perSt); de = r.de; ate = r.ate; }
+    else { de = periodo === 'semana' ? terca(dia) : dia; ate = dia; }
+    const cobre = PERIODO.cobre(periodo, perSt, de, ate);
 
     // filtros
     const ctl = el('div', 'pt-controls');
@@ -82,16 +86,20 @@
       b.addEventListener('click', () => { periodo = v; dash.render(); });
       seg.append(b);
     });
-    const total = somaErros(E, de, ate);
+    PERIODO.segExtra(periodo, (v) => { periodo = v; dash.render(); }).forEach((b) => seg.append(b));
+    const total = somaErros(E, cobre);
     const bt = el('button', 'nt-baixar', `⬇ Baixar base (${PT.fmt(total, 'int')} erros)`);
     bt.type = 'button';
-    bt.addEventListener('click', () => baixar(E, de, ate));
+    bt.addEventListener('click', () => baixar(E, cobre, de, ate));
+    const pnl = PERIODO.painel(periodo, datas, perSt, () => dash.render());
     ctl.append(lab, seg, bt);
+    if (pnl) ctl.append(pnl);
 
     // indicadores (coluna da esquerda, como no Excel)
     const n = de === ate ? 1 : Math.round((Date.parse(ate) - Date.parse(de)) / 864e5) + 1;
     const antDe = soma(de, -n), antAte = soma(ate, -n);
-    const totalAnt = somaErros(E, antDe, antAte), rec = somaReceb(R, de, ate);
+    const cobreAnt = (d) => d >= antDe && d <= antAte;
+    const totalAnt = somaErros(E, cobreAnt), rec = somaReceb(R, cobre);
     const evol = total - totalAnt;
     const ind = el('div', 'er-ind');
     const kpi = (tit, v, cor, cls) => { const k = el('div', 'er-kpi'); k.style.setProperty('--cor', cor); k.append(el('div', 'er-kpi-h', tit), el('div', 'er-kpi-v ' + (cls || ''), v)); return k; };
@@ -104,7 +112,7 @@
     );
 
     const dcs = el('div', 'er-dcs');
-    DCS.forEach((dc) => dcs.append(painelDC(E, R, dc, de, ate, total)));
+    DCS.forEach((dc) => dcs.append(painelDC(E, R, dc, cobre, total)));
     const corpo = el('div', 'er-corpo');
     corpo.append(ind, dcs);
     box.replaceChildren(ctl, corpo);
