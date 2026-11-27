@@ -7,6 +7,8 @@
   const terca = (d) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 5) % 7)); return ISO(t); };
   let diaEscolhido = null; // null = último dia com dados
   let modo = 'dia';             // 'dia' = visão diária · 'hora' = pacotes por hora (como a aba "Por Hora" do Excel)
+  let periodoOff = null;        // null = diária/hora · 'intervalo'/'datas' = visão somada do período
+  const perSt = PERIODO.estado();
   const ORDEM_H = [...Array(24)].map((_, i) => (i + 6) % 24); // o dia operacional vai das 06h às 05h
   const hh = (h) => String(h).padStart(2, '0') + 'h';
 
@@ -201,11 +203,31 @@
     // troca entre a visão diária e a de pacotes por hora
     const seg = el('div', 'pt-seg');
     [['dia', 'Visão diária'], ['hora', 'Pacotes por hora']].forEach(([v, t]) => {
-      const b = el('button', '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(modo === v));
-      b.addEventListener('click', () => { modo = v; dash.render(); });
+      const b = el('button', '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(!periodoOff && modo === v));
+      b.addEventListener('click', () => { modo = v; periodoOff = null; dash.render(); });
       seg.append(b);
     });
+    PERIODO.segExtra(periodoOff || '', (v) => { periodoOff = v; dash.render(); }).forEach((b) => seg.append(b));
     ctl.append(seg);
+    if (periodoOff) { // visão somada do período (Intervalo / Datas)
+      const rr = PERIODO.deAte(periodoOff, datas, perSt), de = rr.de, ate = rr.ate;
+      const cobre = PERIODO.cobre(periodoOff, perSt, de, ate);
+      const totSet = (dc) => { let rec = 0, con = 0; for (const x of rows) if (cobre(x.data) && (!dc || x.dc === dc)) { rec += x.recebido_off || 0; con += x.consolidado || 0; } return {rec, con, taxa: rec ? con / rec : null}; };
+      const pnl = PERIODO.painel(periodoOff, datas, perSt, () => dash.render()); if (pnl) ctl.append(pnl);
+      const T = totSet();
+      const rot = periodoOff === 'datas' ? `${perSt.dias.size} dia(s) escolhido(s)` : `${PT.dDataAno(de)} a ${PT.dDataAno(ate)}`;
+      const top = el('div', 'off-tops');
+      const cartaoS = (titulo, valor) => { const c = el('div', 'off-top'); c.append(el('div', 'off-top-h', titulo), el('div', 'off-top-v', valor)); return c; };
+      top.append(cartaoS('Total Recebido', PT.fmt(T.rec, 'int')), cartaoS('Total Consolidado', PT.fmt(T.con, 'int')), cartaoS('Consolidado x Recebido %', PT.fmt(T.taxa ?? 0, 'pct')));
+      const tc = el('div', 'pt-card');
+      tc.append(el('h3', '', `Resumo por DC · ${rot}`));
+      const tb = el('table', 'hc-tbl'); tb.innerHTML = '<thead><tr><th>DC</th><th class="num">Recebido</th><th class="num">Consolidado</th><th class="num">% Consolidado</th></tr></thead>';
+      const body = el('tbody', '');
+      DCS.forEach((dc) => { const t = totSet(dc); const tr = el('tr', ''); tr.append(el('td', '', dc), el('td', 'num', PT.fmt(t.rec, 'int')), el('td', 'num', PT.fmt(t.con, 'int')), el('td', 'num', PT.fmt(t.taxa ?? 0, 'pct'))); body.append(tr); });
+      tb.append(body); const w = el('div', 'pt-tbl-wrap'); w.append(tb); tc.append(w);
+      box.replaceChildren(ctl, top, tc);
+      return;
+    }
     const gh = dash.data('off_hora'), horas = gh.status === 'ok' ? gh.data : [];
     if (modo === 'hora') {
       const temHora = horas.some((r) => r.data === dia);
