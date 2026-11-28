@@ -21,11 +21,12 @@
 
   async function capturar(sec) {
     const fundo = getComputedStyle(document.body).backgroundColor || '#0b1020';
-    const canvas = await html2canvas(sec, {
-      backgroundColor: fundo, scale: Math.min(2, (window.devicePixelRatio || 1) + 0.4), useCORS: true, logging: false,
-      ignoreElements: (n) => n.classList && (n.classList.contains('postar-btn') || n.classList.contains('cenario') || n.classList.contains('tt-pilha') || n.classList.contains('tv-btn') || n.classList.contains('chat-btn') || n.classList.contains('chat-painel')),
+    const fora = (n) => !(n.classList && (n.classList.contains('postar-btn') || n.classList.contains('tv-btn') || n.classList.contains('chat-btn') || n.classList.contains('chat-painel') || n.classList.contains('tt-pilha')));
+    return await htmlToImage.toJpeg(sec, {
+      quality: 0.92, backgroundColor: fundo,
+      pixelRatio: Math.min(2, (window.devicePixelRatio || 1) + 0.4),
+      filter: fora, cacheBust: true,
     });
-    return canvas.toDataURL('image/jpeg', 0.92);
   }
 
   async function postar(aba, btn) {
@@ -50,7 +51,7 @@
 
   async function iniciar() {
     try { await window.portalApi('admin', {metodo: 'GET'}); } catch (e) { return; } // só admin
-    if (typeof html2canvas !== 'function') { console.warn('html2canvas não carregou — botão de postar desativado.'); return; }
+    if (typeof htmlToImage === 'undefined' || typeof htmlToImage.toJpeg !== 'function') { console.warn('html-to-image não carregou — botão de postar desativado.'); return; }
     Object.keys(NOME).forEach((aba) => {
       const cab = document.querySelector(`#${aba} .pt-sec-head`);
       if (!cab || cab.querySelector('.postar-btn')) return;
