@@ -18,6 +18,13 @@
     sacas: 'Controle de Sacas',
   };
   const hoje = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; };
+  const brData = (iso) => iso.split('-').reverse().join('/');
+  // data do RELATÓRIO (não a de hoje): o seletor "Dia" (valor ISO) ou, nas abas De/Até, a maior data escolhida
+  function dataRelatorio(sec) {
+    for (const s of sec.querySelectorAll('select')) if (/^\d{4}-\d{2}-\d{2}$/.test(s.value)) return brData(s.value);
+    const ds = [...sec.querySelectorAll('input[type=date]')].map((i) => i.value).filter((v) => /^\d{4}-\d{2}-\d{2}$/.test(v)).sort();
+    return ds.length ? brData(ds[ds.length - 1]) : hoje();
+  }
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
   // abas que postam MAIS DE UM print (o bot troca a visão sozinho antes de cada captura, pelo texto do botão)
   const VISTAS = {
@@ -43,6 +50,7 @@
     const txt0 = btn.textContent; btn.disabled = true;
     try {
       const nome = NOME[aba] || aba;
+      const data = dataRelatorio(sec); // data do relatório
       const segs = VISTAS[aba] || [null]; // uma ou mais visões
       const vistaAtual = sec.querySelector('.pt-seg button[aria-pressed="true"]');
       const imagens = [];
@@ -58,8 +66,8 @@
       if (vistaAtual && vistaAtual.getAttribute('aria-pressed') !== 'true') vistaAtual.click(); // volta pra visão que estava
       btn.textContent = '📤 Enviando…';
       await window.portalApi('postar', {metodo: 'POST', corpo: {
-        aba, titulo: `${nome} · ${hoje()}`, link: SITE + '#' + aba,
-        resumo: [`**${nome}**`, `📅 ${hoje()}`, 'Detalhes e base no portal 👇'],
+        aba, titulo: `${nome} · ${data}`, link: SITE + '#' + aba,
+        resumo: [`**${nome}**`, `📅 ${data}`, 'Detalhes e base no portal 👇'],
         imagens,
       }});
       btn.textContent = '✅ Postado!';
