@@ -18,6 +18,11 @@
     sacas: 'Controle de Sacas',
   };
   const hoje = () => { const d = new Date(); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; };
+  const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+  // abas que postam MAIS DE UM print (o bot troca a visão sozinho antes de cada captura, pelo texto do botão)
+  const VISTAS = {
+    offloading: ['Visão diária', 'Pacotes por hora'],
+  };
 
   async function capturar(sec) {
     const fundo = getComputedStyle(document.body).backgroundColor || '#0b1020';
@@ -35,15 +40,27 @@
 
   async function postar(aba, btn) {
     const sec = document.getElementById(aba); if (!sec) return;
-    const txt0 = btn.textContent; btn.disabled = true; btn.textContent = '📸 Capturando…';
+    const txt0 = btn.textContent; btn.disabled = true;
     try {
-      const imagem = await capturar(sec);
-      btn.textContent = '📤 Enviando…';
       const nome = NOME[aba] || aba;
+      const segs = VISTAS[aba] || [null]; // uma ou mais visões
+      const vistaAtual = sec.querySelector('.pt-seg button[aria-pressed="true"]');
+      const imagens = [];
+      for (let i = 0; i < segs.length; i++) {
+        btn.textContent = segs.length > 1 ? `📸 Print ${i + 1}/${segs.length}…` : '📸 Capturando…';
+        const s = segs[i];
+        if (s) {
+          const b2 = [...sec.querySelectorAll('.pt-seg button')].find((x) => x.textContent.trim() === s);
+          if (b2 && b2.getAttribute('aria-pressed') !== 'true') { b2.click(); await espera(700); } // deixa renderizar os gráficos
+        }
+        imagens.push(await capturar(sec));
+      }
+      if (vistaAtual && vistaAtual.getAttribute('aria-pressed') !== 'true') vistaAtual.click(); // volta pra visão que estava
+      btn.textContent = '📤 Enviando…';
       await window.portalApi('postar', {metodo: 'POST', corpo: {
         aba, titulo: `${nome} · ${hoje()}`, link: SITE + '#' + aba,
         resumo: [`**${nome}**`, `📅 ${hoje()}`, 'Detalhes e base no portal 👇'],
-        imagem,
+        imagens,
       }});
       btn.textContent = '✅ Postado!';
       setTimeout(() => { btn.textContent = txt0; btn.disabled = false; }, 2600);
