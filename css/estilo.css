@@ -871,3 +871,10 @@ body.menu-escondido .menu-toggle { display: block; }
 .per-chip:hover { border-color: var(--imile-azul); }
 .per-chip.on { border-color: var(--imile-azul); background: color-mix(in srgb, var(--imile-azul) 14%, transparent); font-weight: 600; }
 .per-chip input { width: 14px; height: 14px; accent-color: var(--imile-azul); cursor: pointer; }
+
+/* botão "Postar no grupo" (só admin) */
+.postar-btn { align-self: center; font: inherit; font-size: 13px; font-weight: 700; color: #fff; background: linear-gradient(120deg, #0b8a5b, #16a37f); border: 0; border-radius: 10px; padding: 9px 14px; cursor: pointer; box-shadow: 0 6px 16px rgba(11,138,91,.28); transition: transform .18s, filter .18s; }
+.postar-btn:hover { transform: translateY(-2px); }
+.postar-btn:disabled { filter: grayscale(.3) brightness(.9); cursor: default; transform: none; }
+.pt-sec-head:has(.postar-btn) { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+body.modo-tv .postar-btn { display: none !important; }
