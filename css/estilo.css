@@ -878,3 +878,6 @@ body.menu-escondido .menu-toggle { display: block; }
 .postar-btn:disabled { filter: grayscale(.3) brightness(.9); cursor: default; transform: none; }
 .pt-sec-head:has(.postar-btn) { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 body.modo-tv .postar-btn { display: none !important; }
+
+/* margem temporária durante a captura do print (evita cortar a borda dos cards) */
+.pt-capturando { padding: 16px !important; box-sizing: border-box; background: var(--color-bg); }

@@ -22,14 +22,15 @@
   async function capturar(sec) {
     const fundo = getComputedStyle(document.body).backgroundColor || '#0b1020';
     const fora = (n) => !(n.classList && (n.classList.contains('postar-btn') || n.classList.contains('tv-btn') || n.classList.contains('chat-btn') || n.classList.contains('chat-painel') || n.classList.contains('tt-pilha')));
-    const pad = 16, rp = Math.min(1.8, (window.devicePixelRatio || 1) + 0.3);
-    // captura o conteúdo inteiro (scroll completo) + margem, pra não cortar bordas nem o que está embaixo
-    return await htmlToImage.toJpeg(sec, {
-      quality: 0.95, backgroundColor: fundo, pixelRatio: rp,
-      width: sec.scrollWidth + pad * 2, height: sec.scrollHeight + pad * 2,
-      style: {padding: pad + 'px', boxSizing: 'border-box', background: fundo, overflow: 'visible'},
-      filter: fora, cacheBust: true,
-    });
+    const rp = Math.min(1.8, (window.devicePixelRatio || 1) + 0.3);
+    // margem temporária só pra não cortar a borda dos cards; sem forçar largura (pra não mudar o que está na tela)
+    sec.classList.add('pt-capturando');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try {
+      return await htmlToImage.toJpeg(sec, {quality: 0.95, backgroundColor: fundo, pixelRatio: rp, filter: fora, cacheBust: true});
+    } finally {
+      sec.classList.remove('pt-capturando');
+    }
   }
 
   async function postar(aba, btn) {
