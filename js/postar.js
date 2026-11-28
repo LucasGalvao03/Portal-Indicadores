@@ -45,6 +45,22 @@
     }
   }
 
+  // base AO VIVO: aciona o botão "Baixar base" da aba e captura o arquivo (sem baixar de verdade) — sempre o dado atual
+  async function baseViva(sec) {
+    const bt = [...sec.querySelectorAll('button')].find((b) => /baixar base/i.test(b.textContent || ''));
+    if (!bt || bt.disabled) return null;
+    let cap = null;
+    const orig = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { if (this.download) cap = {href: this.href, nome: this.download}; else orig.call(this); };
+    try { bt.click(); } finally { HTMLAnchorElement.prototype.click = orig; }
+    if (!cap) return null;
+    try {
+      const blob = await (await fetch(cap.href)).blob();
+      const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+      return {nome: cap.nome, b64};
+    } catch (e) { console.warn('base viva:', e); return null; }
+  }
+
   async function postar(aba, btn) {
     const sec = document.getElementById(aba); if (!sec) return;
     const txt0 = btn.textContent; btn.disabled = true;
@@ -64,11 +80,12 @@
         imagens.push(await capturar(sec));
       }
       if (vistaAtual && vistaAtual.getAttribute('aria-pressed') !== 'true') vistaAtual.click(); // volta pra visão que estava
+      const arquivo = await baseViva(sec); // base atual (null se a aba não tiver "Baixar base")
       btn.textContent = '📤 Enviando…';
       await window.portalApi('postar', {metodo: 'POST', corpo: {
         aba, titulo: `${nome} · ${data}`, link: SITE + '#' + aba,
         resumo: [`**${nome}**`, `📅 ${data}`, 'Detalhes e base no portal 👇'],
-        imagens,
+        imagens, arquivo,
       }});
       btn.textContent = '✅ Postado!';
       setTimeout(() => { btn.textContent = txt0; btn.disabled = false; }, 2600);
