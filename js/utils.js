@@ -204,3 +204,13 @@ window.PT = (() => {
 
   return {fmt, F, DCS, CORES, cor, parse, dData, dDataAno, enc, ok, el, mark, pill, stClass, rows, legend, line, bars, hbars};
 })();
+
+// baixa um CSV (usado pelo "Baixar base" das abas e capturado pelo bot do Lark)
+window.PT.baixaCSV = (nome, cab, linhas) => {
+  const q = (v) => { const t = String(v == null ? '' : v); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const csv = '﻿' + [cab, ...linhas].map((l) => l.map(q).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  a.download = nome; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};

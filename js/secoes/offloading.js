@@ -209,6 +209,10 @@
     });
     PERIODO.segExtra(periodoOff || '', (v) => { periodoOff = v; dash.render(); }).forEach((b) => seg.append(b));
     ctl.append(seg);
+    const bBase = el('button', 'nt-baixar', '⬇ Baixar base'); bBase.type = 'button';
+    bBase.addEventListener('click', () => PT.baixaCSV('offloading_base.csv', ['Data', 'DC', 'Recebido', 'Consolidado', '% Consolidado'],
+      rows.filter((r) => r.recebido_off > 0 || r.consolidado > 0).map((r) => [PT.dDataAno(r.data), r.dc, r.recebido_off || 0, r.consolidado || 0, r.recebido_off ? ((r.consolidado || 0) / r.recebido_off * 100).toFixed(1).replace('.', ',') + '%' : ''])));
+    ctl.append(bBase);
     if (periodoOff) { // visão somada do período (Intervalo / Datas)
       const rr = PERIODO.deAte(periodoOff, datas, perSt), de = rr.de, ate = rr.ate;
       const cobre = PERIODO.cobre(periodoOff, perSt, de, ate);

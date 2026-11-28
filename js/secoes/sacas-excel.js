@@ -152,6 +152,10 @@
     const seg = el('div', 'pt-seg');
     [['painel', 'Painel'], ['detalhe', 'Detalhe por DS']].forEach(([v, t]) => { const b = el('button', '', t); b.type = 'button'; b.setAttribute('aria-pressed', String(visao === v)); b.addEventListener('click', () => { visao = v; dash.render(); }); seg.append(b); });
     ctl.append(ls, lm, seg);
+    const bBase = el('button', 'nt-baixar', '⬇ Baixar base'); bBase.type = 'button';
+    bBase.addEventListener('click', () => PT.baixaCSV('sacas_base.csv', ['Semana', 'DC', 'DS', 'Especialista', 'Enviadas', 'Devolvidas'],
+      S.filter((r) => P.includes(r.ini) && !r.manual).map((r) => [rotulo(r.ini), r.dc, r.ds, r.esp || '', r.env || 0, r.dev || 0])));
+    ctl.append(bBase);
     const pIni = P[0], pFim = P[P.length - 1], jIni = soma(pIni, 7), jFim = soma(pFim, 13);
     const envio = ini === 'TOTAL' ? `Total ${rotulo(pIni).slice(0, 3)} a ${rotulo(pFim).slice(0, 3)} (${dm(pIni)} a ${dm(soma(pFim, 6))})` : rotulo(ini);
     const sit = ini === 'TOTAL' ? ' (acumulado)' : hoje <= jFim ? ' (em andamento)' : '';

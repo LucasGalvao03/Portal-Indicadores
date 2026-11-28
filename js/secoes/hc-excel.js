@@ -118,6 +118,10 @@
     const ult = el('span', 'hc-ult', `Última data na base: ${br(ultima)}`);
     if (perModo === 'datas') ctl.append(modoSeg, PERIODO.painel('datas', datas, perSt, () => dash.render()), vis, ult);
     else ctl.append(cDe, cAte, atalhos, modoSeg, vis, ult);
+    const bBase = el('button', 'nt-baixar', '⬇ Baixar base'); bBase.type = 'button';
+    bBase.addEventListener('click', () => PT.baixaCSV('hc_base.csv', ['Data', 'DC', 'Volume', 'Pessoas'],
+      H.filter((r) => cobre(r.data) && r.volume_hc > 0).map((r) => [br(r.data), r.dc, r.volume_hc || 0, r.pessoas || 0])));
+    ctl.append(bBase);
 
     // cartões
     const tot = resumo(H, cobre);

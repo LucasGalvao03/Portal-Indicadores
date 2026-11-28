@@ -164,6 +164,10 @@
     PERIODO.segExtra(periodo, (v) => { periodo = v; dash.render(); }).forEach((b) => segPer.append(b));
     ctl.append(lab, segPer, seg([['dc', 'Por DC'], ['rotas', 'Rotas e DS']], visao, (v) => { visao = v; }));
     const pnl = PERIODO.painel(periodo, datas, perSt, () => dash.render()); if (pnl) ctl.append(pnl);
+    const bBase = el('button', 'nt-baixar', '⬇ Baixar base'); bBase.type = 'button';
+    bBase.addEventListener('click', () => PT.baixaCSV('pontualidade_base.csv', ['Data', 'DC', 'Rota', 'Pacotes', 'Sacas', '1º bipe', 'Último bipe', 'Prevista', 'Real', 'Veículo'],
+      C.rotas.filter((r) => DCS.includes(r.dc) && cobre(r.data)).map((r) => [br(r.data), r.dc, r.rota, r.pacotes || 0, r.sacas || 0, r.primeiro || '', r.ultimo || '', r.prevista || '', r.real || '', r.veiculo || ''])));
+    ctl.append(bBase);
     const info = el('p', 'pd-info', `Período: ${br(de)}${de === ate ? ' (1 dia)' : ` a ${br(ate)} (${n} dias)`}  ·  ▲▼ comparado com o período anterior  ·  Parado = pausas de mais de 30 min`);
 
     if (visao === 'rotas') {
