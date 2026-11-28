@@ -87,11 +87,47 @@
     return wrap;
   }
 
+  // ---- bases dos relatórios (o que o bot anexa no grupo) ----
+  const BASE_ABAS = ['offloading', 'noscan', 'notracking', 'erro', 'eficiencia', 'pontualidade', 'lost', 'sacas'];
+  let BASES = [];
+  async function carregarBases() { try { BASES = (await window.portalApi('bases', {metodo: 'GET'})).bases || []; } catch (e) { BASES = []; } }
+  function secaoBases() {
+    const sec = el('div', 'adm-sec'); sec.append(el('h3', 'adm-h', '📎 Bases dos relatórios (anexo do bot)'));
+    sec.append(el('div', 'adm-vazio', 'Arquivo pequeno fica guardado e é anexado na mensagem. Grande (>~15 MB): use "Salvar link".'));
+    const lista = el('div', 'adm-bases'); const mapa = {}; BASES.forEach((b) => (mapa[b.aba] = b));
+    BASE_ABAS.forEach((aba) => {
+      const b = mapa[aba]; const row = el('div', 'adm-base');
+      const h = el('div', 'adm-base-h'); h.append(el('b', '', nomeAba(aba)));
+      let est = 'sem base';
+      if (b && b.tipo === 'arquivo') est = `📄 ${b.nome || ''} · ${b.tamanho ? (b.tamanho / 1e6).toFixed(1) + ' MB' : ''} · ${dt(b.atualizado)}`;
+      else if (b && b.tipo === 'link') est = `🔗 link · ${dt(b.atualizado)}`;
+      h.append(el('span', 'adm-base-est', est));
+      const inp = el('input'); inp.type = 'file'; inp.accept = '.xlsx,.xlsm,.xls'; inp.style.display = 'none';
+      const bUp = el('button', 'adm-base-bt', '⬆ Enviar arquivo'); bUp.type = 'button'; bUp.addEventListener('click', () => inp.click());
+      inp.addEventListener('change', async () => {
+        const f = inp.files[0]; if (!f) return; bUp.disabled = true; bUp.textContent = 'Enviando…';
+        try {
+          const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(f); });
+          await window.portalApi('subir_base', {metodo: 'POST', corpo: {aba, nome: f.name, tamanho: f.size, b64}});
+          await carregarBases(); render();
+        } catch (e) { bUp.textContent = '⚠ Erro'; console.error(e); setTimeout(() => { bUp.disabled = false; bUp.textContent = '⬆ Enviar arquivo'; }, 2000); }
+      });
+      const linp = el('input', 'adm-base-link'); linp.type = 'url'; linp.placeholder = 'link de download (grandes)'; if (b && b.tipo === 'link') linp.value = b.link || '';
+      const bLink = el('button', 'adm-base-bt', 'Salvar link'); bLink.type = 'button';
+      bLink.addEventListener('click', async () => { if (!linp.value) return; bLink.disabled = true; try { await window.portalApi('base_link', {metodo: 'POST', corpo: {aba, nome: (b && b.nome) || 'base', link: linp.value}}); await carregarBases(); render(); } catch (e) { console.error(e); bLink.disabled = false; } });
+      row.append(h, bUp, inp, linp, bLink);
+      if (b) { const bRem = el('button', 'adm-base-rem', 'Remover'); bRem.type = 'button'; bRem.addEventListener('click', async () => { await window.portalApi('base_remover', {metodo: 'POST', corpo: {aba}}); await carregarBases(); render(); }); row.append(bRem); }
+      lista.append(row);
+    });
+    sec.append(lista); return sec;
+  }
+
   function render() {
     const A = agrega(D);
     const body = painel.querySelector('.adm-body'); body.replaceChildren();
 
     body.append(secaoRobo(D)); // monitor do robô no topo
+    body.append(secaoBases()); // bases dos relatórios
 
     // cards de resumo
     const cards = el('div', 'adm-cards');
@@ -144,9 +180,9 @@
   painel.append(cab, el('div', 'adm-body'));
   document.body.append(painel);
 
-  const abrir = () => { painel.style.display = 'flex'; render(); };
+  const abrir = async () => { painel.style.display = 'flex'; render(); await carregarBases(); render(); };
   btn.addEventListener('click', abrir);
   fechar.addEventListener('click', () => { painel.style.display = 'none'; });
-  rec.addEventListener('click', async () => { rec.disabled = true; rec.textContent = '↻ …'; try { D = await window.portalApi('admin', {metodo: 'GET'}); render(); } catch (e) { /* nada */ } finally { rec.disabled = false; rec.textContent = '↻ Atualizar'; } });
+  rec.addEventListener('click', async () => { rec.disabled = true; rec.textContent = '↻ …'; try { D = await window.portalApi('admin', {metodo: 'GET'}); await carregarBases(); render(); } catch (e) { /* nada */ } finally { rec.disabled = false; rec.textContent = '↻ Atualizar'; } });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && painel.style.display !== 'none') painel.style.display = 'none'; });
 })();
