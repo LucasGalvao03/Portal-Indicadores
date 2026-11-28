@@ -92,7 +92,7 @@
     const r = await fetch(FUNCAO + '?acao=' + acao + (params ? '&' + params : ''), {method: metodo, cache: 'no-store',
       headers: Object.assign({'x-sessao': s.token}, corpo ? {'Content-Type': 'application/json'} : {}), body: corpo ? JSON.stringify(corpo) : undefined});
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.erro || ('erro ' + r.status));
+    if (!r.ok) throw new Error((j.erro || ('erro ' + r.status)) + (j.detalhe ? ' — ' + j.detalhe : ''));
     return j;
   };
 
